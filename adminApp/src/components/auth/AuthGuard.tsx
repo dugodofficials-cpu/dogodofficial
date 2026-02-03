@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { cookies } from '@/lib/utils/cookies';
 import { Box, CircularProgress } from '@mui/material';
@@ -11,13 +11,23 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
-  const token = cookies.getAuthToken();
+  const [token, setToken] = useState<string | null>(null);
+  const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
-    if (!token) {
+    setHasMounted(true);
+    setToken(cookies.getAuthToken());
+  }, []);
+
+  useEffect(() => {
+    if (hasMounted && !token) {
       router.push('/login');
     }
-  }, [router, token]);
+  }, [router, hasMounted, token]);
+
+  if (!hasMounted) {
+    return null;
+  }
 
   if (!token) {
     return (

@@ -34,7 +34,7 @@ class EmailService {
       url: appConfig?.zepto?.url || 'https://api.zeptomail.com',
       token: appConfig?.zepto?.apiToken || '',
     });
-    this.resendClient = new Resend(appConfig?.resend?.apiKey || '');
+    this.resendClient = appConfig?.resend?.apiKey ? new Resend(appConfig.resend.apiKey) : null;
     this.initializeDefaultTemplates();
   }
   private async initializeDefaultTemplates(): Promise<void> {

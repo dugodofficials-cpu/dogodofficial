@@ -15,6 +15,7 @@ class ApiError extends Error {
 }
 
 const axiosInstance = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -47,8 +48,9 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
   const { method = 'GET', headers = {}, body } = options;
 
   try {
+    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const response = await axiosInstance.request<T>({
-      url: `/api/${endpoint}`,
+      url: normalizedEndpoint,
       method,
       headers,
       data: body,

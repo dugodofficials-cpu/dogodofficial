@@ -5,7 +5,7 @@ export const { NODE_ENV, PORT, SECRET_KEY, LOG_FORMAT, LOG_DIR, ORIGIN } = proce
 export const { MONGODB_URI, DB_HOST, DB_PORT, DB_DATABASE, DB_URI } = process.env;
 export const { PAYSTACK_SECRET_KEY, PAYSTACK_PUBLIC_KEY, APP_URL } = process.env;
 export const { AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, AWS_S3_BUCKET } = process.env;
-export const { GOOGLE_CLIENT_ID } = process.env;
+export const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } = process.env;
 export const { ZEPTO_API_TOKEN, ZEPTO_DOMAIN } = process.env;
 export const dbConfig = {
   url: process.env.MONGODB_URL,
@@ -30,6 +30,7 @@ export const appConfig = {
   shipping: shippingConfig,
   google: {
     clientId: GOOGLE_CLIENT_ID,
+    clientSecret: GOOGLE_CLIENT_SECRET,
   },
   zepto: {
     apiToken: ZEPTO_API_TOKEN,

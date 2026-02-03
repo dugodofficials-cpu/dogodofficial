@@ -1,7 +1,7 @@
 import { DataStoredInToken, TokenData } from '@/modules/auth/auth.interface';
 import { User, UserDocument } from '@/modules/users/users.interface';
 import userModel from '@/modules/users/users.model';
-import { SECRET_KEY, GOOGLE_CLIENT_ID } from '@config';
+import { SECRET_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } from '@config';
 import { HttpException } from '@exceptions/HttpException';
 import { isEmpty } from '@utils/util';
 import { compare, hash } from 'bcrypt';
@@ -21,7 +21,7 @@ class AuthService {
   private sessionService: SessionService;
   constructor() {
     this.users = userModel;
-    this.googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+    this.googleClient = new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET);
     this.emailVerificationService = new EmailVerificationService();
     this.passwordResetService = new PasswordResetService();
     this.sessionService = new SessionService();

@@ -61,9 +61,12 @@ class App {
     this.app.set('trust proxy', 1);
     this.app.use(strictSecurity);
     this.app.use(morgan(LOG_FORMAT, { stream }));
-    const allowedOrigins = ORIGIN ? ORIGIN.split(',').map(origin => origin.trim()) : [];
+    const allowedOrigins = ORIGIN ? ORIGIN.split(',').map(origin => origin.trim()).filter(Boolean) : [];
+    const corsOrigin = this.env === 'development'
+      ? true
+      : (allowedOrigins.length > 0 ? allowedOrigins : true);
     this.app.use(cors({
-      origin: allowedOrigins.length > 0 ? allowedOrigins : true,
+      origin: corsOrigin,
       credentials: CREDENTIALS,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
