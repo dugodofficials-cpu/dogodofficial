@@ -11,25 +11,22 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
-  const [hasMounted, setHasMounted] = useState(false);
+  const [authStatus, setAuthStatus] = useState<'checking' | 'authenticated' | 'unauthenticated'>(
+    'checking',
+  );
 
   useEffect(() => {
-    setHasMounted(true);
-    setToken(cookies.getAuthToken());
+    const token = cookies.getAuthToken();
+    setAuthStatus(token ? 'authenticated' : 'unauthenticated');
   }, []);
 
   useEffect(() => {
-    if (hasMounted && !token) {
-      router.push('/login');
+    if (authStatus === 'unauthenticated') {
+      router.replace('/login');
     }
-  }, [router, hasMounted, token]);
+  }, [router, authStatus]);
 
-  if (!hasMounted) {
-    return null;
-  }
-
-  if (!token) {
+  if (authStatus !== 'authenticated') {
     return (
       <Box
         sx={{
