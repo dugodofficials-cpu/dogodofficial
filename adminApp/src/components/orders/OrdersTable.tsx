@@ -78,8 +78,11 @@ interface RowProps {
 
 function Row({ order, index, page, rowsPerPage, onViewOrder }: RowProps) {
   const [open, setOpen] = useState(false);
-  const userName = order.user
-    ? `${order.user.firstName ?? ''} ${order.user.lastName ?? ''}`.trim() || 'Unnamed user'
+  const orderUser = typeof order.user === 'object' && order.user !== null
+    ? order.user
+    : null;
+  const userName = orderUser
+    ? `${orderUser.firstName ?? ''} ${orderUser.lastName ?? ''}`.trim() || 'Unnamed user'
     : 'Unknown user';
 
   return (

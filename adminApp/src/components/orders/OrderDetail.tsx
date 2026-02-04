@@ -65,6 +65,15 @@ export function OrderDetail({
   const { mutate: resendOrderConfirmation } = useResendOrderConfirmation(
     order._id,
   );
+  const orderUser = typeof order.user === 'object' && order.user !== null
+    ? order.user
+    : null;
+  const userName = orderUser
+    ? `${orderUser.firstName ?? ''} ${orderUser.lastName ?? ''}`.trim() ||
+      'Unnamed user'
+    : 'Unknown user';
+  const userEmail = orderUser?.email ?? 'Unknown email';
+  const userPhone = orderUser?.phone ?? 'Unknown phone';
 
   return (
     <Box sx={{ mx: 'auto', py: 3, px: 4 }}>
@@ -166,10 +175,10 @@ export function OrderDetail({
         <InfoRow label="Order ID" value={order.orderNumber} />
         <InfoRow
           label="User"
-          value={order.user.firstName + ' ' + order.user.lastName}
+          value={userName}
         />
-        <InfoRow label="Email" value={order.user.email} />
-        <InfoRow label="Phone" value={order.user.phone} />
+        <InfoRow label="Email" value={userEmail} />
+        <InfoRow label="Phone" value={userPhone} />
         <InfoRow
           label="Date Ordered"
           value={new Date(order.orderedAt).toLocaleString()}
