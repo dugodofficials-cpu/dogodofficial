@@ -155,22 +155,23 @@ class OrderService {
     const processedItems = await Promise.all(orderData.items.map(async item => {
       const product = await this.products.findById(item.product);
       if (!product) throw new HttpException(404, `Product ${item.product} not found`);
-      return { ...item, product };
+      return { ...item, product: product._id, productType: product.type };
     }));
-    const hasPhysicalItems = processedItems.some(item => item.product.type === ProductType.PHYSICAL);
-    const hasDigitalItems = processedItems.some(item => item.product.type === ProductType.DIGITAL);
+    const orderItems = processedItems.map(({ productType, ...item }) => item);
+    const hasPhysicalItems = processedItems.some(item => item.productType === ProductType.PHYSICAL);
+    const hasDigitalItems = processedItems.some(item => item.productType === ProductType.DIGITAL);
     if (hasPhysicalItems && !orderData.shippingDetails) {
       throw new HttpException(400, 'Shipping details required for physical items');
     }
     orderData.shippingCost = hasPhysicalItems
       ? await this.shippingService.calculateShippingRate(orderData.shippingDetails)
       : 0;
-    const subtotal = processedItems.reduce((sum, item) => sum + item.total, 0);
+    const subtotal = orderItems.reduce((sum, item) => sum + item.total, 0);
     const total = subtotal + orderData.tax + orderData.shippingCost - (cartDiscount || orderData.discount || 0);
     const order = new this.orders({
       cartId: cart._id,
       ...orderData,
-      items: processedItems,
+      items: orderItems,
       subtotal,
       total,
       discount: cartDiscount,
@@ -179,16 +180,22 @@ class OrderService {
     const createOrderData: Order = await order.save();
     if (hasPhysicalItems) {
       await Promise.all(
-        processedItems.map(async item => {
-          const product = await this.products.findById(item.product);
-          if (product && product.type === ProductType.PHYSICAL) {
-            product.stockQuantity -= item.quantity;
-            await product.save();
-          }
-        }),
+        processedItems
+          .filter(item => item.productType === ProductType.PHYSICAL)
+          .map(async item => {
+            const product = await this.products.findById(item.product);
+            if (product) {
+              product.stockQuantity -= item.quantity;
+              await product.save();
+            }
+          }),
       );
     }
-    return createOrderData;
+    const populatedOrder = await this.orders.findById(createOrderData._id).populate('user').populate('items.product');
+    if (!populatedOrder) {
+      throw new HttpException(500, 'Failed to populate created order');
+    }
+    return populatedOrder;
   }
   public async updateOrder(orderId: string, orderData: UpdateOrderDto): Promise<Order> {
     if (isEmpty(orderData)) throw new HttpException(400, 'orderData is empty');
