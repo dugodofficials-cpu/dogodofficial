@@ -50,7 +50,9 @@ export function ShippingZoneForm({ zone, onCancel }: ShippingZoneFormProps) {
     if (zone) {
       setFormData({
         name: zone.name,
-        countries: (zone.countries ?? []).map((country) => country.name),
+        countries: (zone.countries ?? [])
+          .map((country) => country?.name)
+          .filter((name): name is string => Boolean(name)),
         regions: zone.regions || [],
         rate: zone.rate,
         postalCodes: zone.postalCodes || [],
