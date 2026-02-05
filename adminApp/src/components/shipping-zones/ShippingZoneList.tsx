@@ -126,7 +126,7 @@ export function ShippingZoneList({
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {zone.countries.map((country: Country, index: number) => (
+                      {(zone.countries ?? []).map((country: Country, index: number) => (
                         <Chip
                           key={index}
                           label={country.name}
