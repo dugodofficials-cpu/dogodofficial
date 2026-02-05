@@ -12,7 +12,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { useState } from 'react';
 import EditCouponModal from './EditCouponModal';
 import { Coupon } from './types';
@@ -20,6 +20,14 @@ import { Coupon } from './types';
 export default function CouponList() {
   const { data: coupons, isLoading } = useCoupons();
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
+
+  const formatDate = (value?: string) => {
+    if (!value) {
+      return '—';
+    }
+    const parsed = new Date(value);
+    return isValid(parsed) ? format(parsed, 'PP') : '—';
+  };
 
   if (isLoading) {
     return <Typography>Loading...</Typography>;
@@ -52,9 +60,9 @@ export default function CouponList() {
                     : `₦${coupon.value}`}
                 </TableCell>
                 <TableCell>
-                  {format(new Date(coupon.startDate), 'PP')}
+                  {formatDate(coupon.startDate)}
                 </TableCell>
-                <TableCell>{format(new Date(coupon.endDate), 'PP')}</TableCell>
+                <TableCell>{formatDate(coupon.endDate)}</TableCell>
                 <TableCell>
                   {coupon.usageCount}
                   {coupon.usageLimit ? `/${coupon.usageLimit}` : ''}
