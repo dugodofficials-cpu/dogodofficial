@@ -29,6 +29,12 @@ export default function CouponList() {
     return isValid(parsed) ? format(parsed, 'PP') : '—';
   };
 
+  const couponRows: Coupon[] = Array.isArray(coupons)
+    ? coupons
+    : Array.isArray(coupons?.data)
+      ? coupons.data
+      : [];
+
   if (isLoading) {
     return <Typography>Loading...</Typography>;
   }
@@ -50,7 +56,7 @@ export default function CouponList() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {coupons?.data?.map((coupon) => (
+            {couponRows.map((coupon) => (
               <TableRow key={coupon._id}>
                 <TableCell>{coupon.code}</TableCell>
                 <TableCell>{coupon.type}</TableCell>
