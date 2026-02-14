@@ -36,6 +36,9 @@ export class PaymentDetailsDto {
   @IsOptional()
   @IsString()
   public cryptoAddress?: string;
+  @IsOptional()
+  @IsString()
+  public txid?: string;
 }
 export class RefundDetailsDto {
   @IsNumber()
@@ -70,6 +73,9 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsEnum(PaymentStatus)
   public status?: PaymentStatus;
+  @IsOptional()
+  @IsString()
+  public txid?: string;
   @ValidateNested()
   @Type(() => PaymentDetailsDto)
   public paymentDetails: PaymentDetailsDto;
@@ -84,6 +90,9 @@ export class UpdatePaymentDto {
   @IsOptional()
   @IsEnum(PaymentStatus)
   public status?: PaymentStatus;
+  @IsOptional()
+  @IsString()
+  public txid?: string;
   @IsOptional()
   @ValidateNested()
   @Type(() => PaymentDetailsDto)

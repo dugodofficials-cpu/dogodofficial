@@ -188,6 +188,47 @@ class PaymentController {
       next(error);
     }
   };
+  public submitCryptoHash = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const paymentId: string = req.params.id;
+      const { txid }: { txid: string } = req.body;
+      const updatePaymentData: Payment = await this.paymentService.submitCryptoHash(paymentId, txid);
+      res.status(200).json({ data: updatePaymentData, message: 'hashSubmitted' });
+    } catch (error) {
+      next(error);
+    }
+  };
+  public submitCryptoHashByOrder = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { orderId, txid }: { orderId: string; txid: string } = req.body;
+      const payments = await this.paymentService.getPayments({ orderId });
+      
+      let payment = payments.find(p => p.paymentDetails.provider === PaymentProvider.CRYPTO);
+      
+      if (!payment) {
+        // Create a new crypto payment record if it doesn't exist
+        const order = await OrderModel.findById(orderId);
+        if (!order) throw new HttpException(404, 'Order not found');
+        
+        payment = await this.paymentService.createPayment({
+          order: orderId,
+          user: req.user._id,
+          amount: order.total,
+          currency: order.currency,
+          status: PaymentStatus.PENDING,
+          paymentDetails: {
+            method: PaymentChannel.CRYPTO,
+            provider: PaymentProvider.CRYPTO,
+          }
+        });
+      }
+
+      const updatePaymentData: Payment = await this.paymentService.submitCryptoHash(payment._id.toString(), txid);
+      res.status(200).json({ data: updatePaymentData, message: 'hashSubmitted' });
+    } catch (error) {
+      next(error);
+    }
+  };
   public handlePaystackWebhook = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     await paystackWebhookHandler.handleWebhook(req, res, next);
   };

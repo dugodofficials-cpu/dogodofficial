@@ -60,9 +60,12 @@ class App {
         this.app.set('trust proxy', 1);
         this.app.use(security_middleware_1.strictSecurity);
         this.app.use((0, morgan_1.default)(_config_1.LOG_FORMAT, { stream: logger_1.stream }));
-        const allowedOrigins = _config_1.ORIGIN ? _config_1.ORIGIN.split(',').map(origin => origin.trim()) : [];
+        const allowedOrigins = _config_1.ORIGIN ? _config_1.ORIGIN.split(',').map(origin => origin.trim()).filter(Boolean) : [];
+        const corsOrigin = this.env === 'development'
+            ? true
+            : (allowedOrigins.length > 0 ? allowedOrigins : true);
         this.app.use((0, cors_1.default)({
-            origin: allowedOrigins.length > 0 ? allowedOrigins : true,
+            origin: corsOrigin,
             credentials: _config_1.CREDENTIALS,
             methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
             allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],

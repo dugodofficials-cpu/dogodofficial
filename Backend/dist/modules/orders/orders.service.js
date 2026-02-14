@@ -155,31 +155,41 @@ class OrderService {
             const product = await this.products.findById(item.product);
             if (!product)
                 throw new HttpException_1.HttpException(404, `Product ${item.product} not found`);
-            return Object.assign(Object.assign({}, item), { product });
+            return Object.assign(Object.assign({}, item), { product: product._id, productType: product.type });
         }));
-        const hasPhysicalItems = processedItems.some(item => item.product.type === products_interface_1.ProductType.PHYSICAL);
-        const hasDigitalItems = processedItems.some(item => item.product.type === products_interface_1.ProductType.DIGITAL);
+        const orderItems = processedItems.map((_a) => {
+            var { productType } = _a, item = tslib_1.__rest(_a, ["productType"]);
+            return item;
+        });
+        const hasPhysicalItems = processedItems.some(item => item.productType === products_interface_1.ProductType.PHYSICAL);
+        const hasDigitalItems = processedItems.some(item => item.productType === products_interface_1.ProductType.DIGITAL);
         if (hasPhysicalItems && !orderData.shippingDetails) {
             throw new HttpException_1.HttpException(400, 'Shipping details required for physical items');
         }
         orderData.shippingCost = hasPhysicalItems
             ? await this.shippingService.calculateShippingRate(orderData.shippingDetails)
             : 0;
-        const subtotal = processedItems.reduce((sum, item) => sum + item.total, 0);
+        const subtotal = orderItems.reduce((sum, item) => sum + item.total, 0);
         const total = subtotal + orderData.tax + orderData.shippingCost - (cartDiscount || orderData.discount || 0);
-        const order = new this.orders(Object.assign(Object.assign({ cartId: cart._id }, orderData), { items: processedItems, subtotal,
+        const order = new this.orders(Object.assign(Object.assign({ cartId: cart._id }, orderData), { items: orderItems, subtotal,
             total, discount: cartDiscount, status: orders_interface_1.OrderStatus.PENDING }));
         const createOrderData = await order.save();
         if (hasPhysicalItems) {
-            await Promise.all(processedItems.map(async (item) => {
+            await Promise.all(processedItems
+                .filter(item => item.productType === products_interface_1.ProductType.PHYSICAL)
+                .map(async (item) => {
                 const product = await this.products.findById(item.product);
-                if (product && product.type === products_interface_1.ProductType.PHYSICAL) {
+                if (product) {
                     product.stockQuantity -= item.quantity;
                     await product.save();
                 }
             }));
         }
-        return createOrderData;
+        const populatedOrder = await this.orders.findById(createOrderData._id).populate('user').populate('items.product');
+        if (!populatedOrder) {
+            throw new HttpException_1.HttpException(500, 'Failed to populate created order');
+        }
+        return populatedOrder;
     }
     async updateOrder(orderId, orderData) {
         if ((0, util_1.isEmpty)(orderData))

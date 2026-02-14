@@ -15,6 +15,8 @@ class PaymentRoute implements Routes {
   }
   private initializeRoutes() {
     this.router.post(`${this.path}/webhook/paystack`, this.paymentController.handlePaystackWebhook);
+    this.router.post(`${this.path}/:id/submit-crypto-hash`, authMiddleware, this.paymentController.submitCryptoHash);
+    this.router.post(`${this.path}/submit-crypto-hash-by-order`, authMiddleware, this.paymentController.submitCryptoHashByOrder);
   }
 }
 export default PaymentRoute;

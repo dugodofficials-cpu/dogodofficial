@@ -12,6 +12,7 @@ export enum PaymentStatus {
 }
 export enum PaymentProvider {
   PAYSTACK = 'paystack',
+  CRYPTO = 'crypto',
 }
 export enum PaymentChannel {
   CARD = 'card',
@@ -20,6 +21,7 @@ export enum PaymentChannel {
   QR = 'qr',
   MOBILE_MONEY = 'mobile_money',
   BANK_TRANSFER = 'bank_transfer',
+  CRYPTO = 'crypto',
 }
 export interface PaymentMethod {
   type: PaymentChannel;
@@ -76,6 +78,7 @@ export interface Payment extends Document {
   amount: number;
   currency: string;
   status: PaymentStatus;
+  txid?: string;
   paymentDetails: PaymentDetails;
   refunds?: RefundDetails[];
   totalRefundedAmount?: number;

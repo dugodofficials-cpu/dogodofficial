@@ -27,10 +27,13 @@ class AlbumCoverService {
   public async deleteAlbumCover(albumCoverId: string): Promise<AlbumCover> {
     const deleteAlbumCoverById: AlbumCover = await this.albumCover.findByIdAndDelete(albumCoverId);
     if (!deleteAlbumCoverById) throw new HttpException(404, 'Album cover not found');
-    const urlParts = deleteAlbumCoverById.imageUrl.split('/');
-    const key = urlParts[urlParts.length - 1];
+    const imageUrl = deleteAlbumCoverById.imageUrl;
+    const bucketUrl = `https://${process.env.AWS_S3_PUBLIC_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
+    const key = imageUrl.replace(bucketUrl, '');
     try {
-      await s3PublicService.deleteFile(key);
+      if (key && key !== imageUrl) {
+        await s3PublicService.deleteFile(key);
+      }
     } catch (error) {
       console.error('Failed to delete file from S3:', error);
     }

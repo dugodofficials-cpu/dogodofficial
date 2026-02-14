@@ -16,7 +16,7 @@ class AuthService {
     constructor() {
         this.users = users_model_1.default;
         this.users = users_model_1.default;
-        this.googleClient = new google_auth_library_1.OAuth2Client(_config_1.GOOGLE_CLIENT_ID);
+        this.googleClient = new google_auth_library_1.OAuth2Client(_config_1.GOOGLE_CLIENT_ID, _config_1.GOOGLE_CLIENT_SECRET);
         this.emailVerificationService = new emailVerification_service_1.default();
         this.passwordResetService = new passwordReset_service_1.default();
         this.sessionService = new session_service_1.default();

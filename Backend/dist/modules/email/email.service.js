@@ -25,7 +25,7 @@ class EmailService {
             url: ((_a = appConfig === null || appConfig === void 0 ? void 0 : appConfig.zepto) === null || _a === void 0 ? void 0 : _a.url) || 'https://api.zeptomail.com',
             token: ((_b = appConfig === null || appConfig === void 0 ? void 0 : appConfig.zepto) === null || _b === void 0 ? void 0 : _b.apiToken) || '',
         });
-        this.resendClient = new resend_1.Resend(((_c = appConfig === null || appConfig === void 0 ? void 0 : appConfig.resend) === null || _c === void 0 ? void 0 : _c.apiKey) || '');
+        this.resendClient = ((_c = appConfig === null || appConfig === void 0 ? void 0 : appConfig.resend) === null || _c === void 0 ? void 0 : _c.apiKey) ? new resend_1.Resend(appConfig.resend.apiKey) : null;
         this.initializeDefaultTemplates();
     }
     async initializeDefaultTemplates() {

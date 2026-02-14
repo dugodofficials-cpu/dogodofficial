@@ -101,6 +101,7 @@ const paymentSchema = new Schema<PaymentDocument>({
   amount: { type: Number, required: true },
   currency: { type: String, required: true },
   status: { type: String, enum: Object.values(PaymentStatus), required: true },
+  txid: { type: String },
   paymentDetails: {
     method: {
       type: { type: String, enum: Object.values(PaymentChannel), required: true },

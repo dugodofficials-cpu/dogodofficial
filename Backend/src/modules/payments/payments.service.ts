@@ -28,6 +28,8 @@ import { HttpException } from '@exceptions/HttpException';
 import { isEmpty } from '@utils/util';
 import { v4 as uuidv4 } from 'uuid';
 import PaystackProvider from './integrations/paystack-provider';
+import cryptoProvider from './integrations/crypto-provider';
+
 export class PaymentService {
   private payments = PaymentModel;
   private transactions = PaymentTransactionModel;
@@ -167,6 +169,53 @@ export class PaymentService {
       .populate('order');
     return updatePaymentById;
   }
+  public async submitCryptoHash(paymentId: string, txid: string): Promise<Payment> {
+    if (isEmpty(txid)) throw new HttpException(400, 'Transaction hash is required');
+    
+    const payment = await this.findPaymentById(paymentId);
+    if (payment.paymentDetails.provider !== PaymentProvider.CRYPTO) {
+      throw new HttpException(400, 'Payment is not a crypto payment');
+    }
+
+    const updatedPayment = await this.payments.findByIdAndUpdate(
+      paymentId,
+      { 
+        $set: { 
+          txid, 
+          status: PaymentStatus.PROCESSING,
+          'paymentDetails.transactionId': txid
+        } 
+      },
+      { new: true }
+    ).populate('user').populate('order');
+
+    // Trigger async validation
+    this.validateCryptoPayment(paymentId, txid).catch(err => 
+      console.error(`Async crypto validation failed for ${paymentId}:`, err)
+    );
+
+    return updatedPayment;
+  }
+
+  private async validateCryptoPayment(paymentId: string, txid: string): Promise<void> {
+    const payment = await this.payments.findById(paymentId);
+    if (!payment) return;
+
+    const expectedAddress = process.env.CRYPTO_WALLET_ADDRESS; 
+    const expectedAmount = payment.amount;
+
+    const { status, details } = await cryptoProvider.validateTransaction(txid, expectedAmount, expectedAddress);
+
+    await this.payments.findByIdAndUpdate(paymentId, {
+      $set: { 
+        status,
+        metadata: { ...payment.metadata, blockchainDetails: details },
+        completedAt: status === PaymentStatus.COMPLETED ? new Date() : undefined,
+        failedAt: status === PaymentStatus.FAILED ? new Date() : undefined,
+      }
+    });
+  }
+
   public async deletePayment(paymentId: string): Promise<Payment> {
     const payment = await this.findPaymentById(paymentId);
     if (![PaymentStatus.FAILED, PaymentStatus.CANCELLED].includes(payment.status)) {
