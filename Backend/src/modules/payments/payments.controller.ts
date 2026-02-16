@@ -7,9 +7,12 @@ import {
   InitiatePaymentDto,
   RefundPaymentDto,
 } from '@/modules/payments/payments.dto';
-import { Payment, PaymentStatus } from '@/modules/payments/payments.interface';
+import { Payment, PaymentChannel, PaymentProvider, PaymentStatus } from '@/modules/payments/payments.interface';
 import PaymentService from '@/modules/payments/payments.service';
 import { paystackWebhookHandler } from './integrations/paystack.webhook';
+import orderModel from '@/modules/orders/orders.model';
+import { HttpException } from '@exceptions/HttpException';
+import { RequestWithUser } from '@/interfaces/auth.interface';
 class PaymentController {
   public paymentService = new PaymentService();
   public getPayments = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -198,7 +201,7 @@ class PaymentController {
       next(error);
     }
   };
-  public submitCryptoHashByOrder = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  public submitCryptoHashByOrder = async (req: RequestWithUser, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { orderId, txid }: { orderId: string; txid: string } = req.body;
       const payments = await this.paymentService.getPayments({ orderId });
@@ -207,17 +210,18 @@ class PaymentController {
       
       if (!payment) {
         // Create a new crypto payment record if it doesn't exist
-        const order = await OrderModel.findById(orderId);
+        const order = await orderModel.findById(orderId);
         if (!order) throw new HttpException(404, 'Order not found');
+        if (!req.user?._id) throw new HttpException(401, 'Authentication token missing');
         
         payment = await this.paymentService.createPayment({
           order: orderId,
           user: req.user._id,
           amount: order.total,
-          currency: order.currency,
+          currency: order.currency || 'NGN',
           status: PaymentStatus.PENDING,
           paymentDetails: {
-            method: PaymentChannel.CRYPTO,
+            method: { type: PaymentChannel.CRYPTO },
             provider: PaymentProvider.CRYPTO,
           }
         });
