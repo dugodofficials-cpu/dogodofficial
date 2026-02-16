@@ -216,12 +216,12 @@ class PaymentController {
         
         payment = await this.paymentService.createPayment({
           order: orderId,
-          user: req.user._id,
+          user: req.user._id.toString(),
           amount: order.total,
-          currency: order.currency || 'NGN',
+          currency: 'NGN',
           status: PaymentStatus.PENDING,
           paymentDetails: {
-            method: { type: PaymentChannel.CRYPTO },
+            method: PaymentChannel.CRYPTO,
             provider: PaymentProvider.CRYPTO,
           }
         });
