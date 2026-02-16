@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'prod',
       script: 'node',
-      args: '-r tsconfig-paths/register dist/server.js',
+      args: '-r module-alias/register -r tsconfig-paths/register dist/server.js',
       exec_mode: 'fork',
       instance_var: 'INSTANCE_ID',
       instances: 1,
@@ -23,7 +23,7 @@ module.exports = {
     {
       name: 'staging',
       script: 'node',
-      args: '-r tsconfig-paths/register dist/server.js',
+      args: '-r module-alias/register -r tsconfig-paths/register dist/server.js',
       exec_mode: 'cluster',
       instance_var: 'INSTANCE_ID',
       instances: 2,
