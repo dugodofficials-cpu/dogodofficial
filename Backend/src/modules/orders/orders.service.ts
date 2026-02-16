@@ -225,11 +225,20 @@ class OrderService {
       case OrderStatus.CONFIRMED:
         try {
           const populatedOrder = await this.orders.findById(order._id).populate('user').populate('items.product');
-          await this.orderEmailService.sendOrderConfirmation(populatedOrder, populatedOrder.user);
+          Promise.resolve()
+            .then(() => this.orderEmailService.sendOrderConfirmation(populatedOrder, populatedOrder.user))
+            .catch(error => {
+              console.error('Failed to send order confirmation email:', error);
+            });
         } catch (error) {
-          console.error('Failed to send order confirmation email:', error);
+          console.error('Failed to prepare order confirmation email:', error);
         }
-        await this.convertBundlesToProducts(orderId);
+
+        Promise.resolve()
+          .then(() => this.convertBundlesToProducts(orderId))
+          .catch(error => {
+            console.error('Failed to convert bundles to products:', error);
+          });
         break;
       case OrderStatus.PROCESSING:
         updateData.processedAt = new Date();
@@ -250,7 +259,13 @@ class OrderService {
         break;
     }
     const updatedOrder = await this.orders.findByIdAndUpdate(orderId, { $set: updateData }, { new: true }).populate('user').populate('items.product');
-    await this.sendOrderStatusEmails(order, updatedOrder, order.status, updatedOrder.status, statusData.notes);
+
+    Promise.resolve()
+      .then(() => this.sendOrderStatusEmails(order, updatedOrder, order.status, updatedOrder.status, statusData.notes))
+      .catch(error => {
+        console.error('Failed to send order status emails:', error);
+      });
+
     return updatedOrder;
   }
   public async updateDeliveryStatus(orderId: string, deliveryData: UpdateDeliveryStatusDto): Promise<Order> {

@@ -65,16 +65,15 @@ class App {
     const corsOrigin = this.env === 'development'
       ? true
       : (allowedOrigins.length > 0 ? allowedOrigins : true);
-    this.app.use(cors({
+    const corsOptions: cors.CorsOptions = {
       origin: corsOrigin,
       credentials: CREDENTIALS,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-      maxAge: 86400
-    }));
-    this.app.options('*', (req, res) => {
-      res.sendStatus(200);
-    });
+      maxAge: 86400,
+    };
+    this.app.use(cors(corsOptions));
+    this.app.options('*', cors(corsOptions));
     this.app.use(hpp());
     this.app.use(helmet());
     this.app.use(compression());
