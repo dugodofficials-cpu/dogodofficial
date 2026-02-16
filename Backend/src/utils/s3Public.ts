@@ -8,7 +8,7 @@ class S3PublicService {
   private bucket: string;
   private region: string;
   constructor() {
-    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY || !process.env.AWS_REGION || !process.env.AWS_S3_BUCKET) {
+    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY || !process.env.AWS_REGION || !process.env.AWS_S3_PUBLIC_BUCKET) {
       throw new Error('AWS credentials are not properly configured');
     }
     this.s3Client = new S3Client({
