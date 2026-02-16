@@ -18,9 +18,9 @@ export class PaystackWebhookHandler {
   private readonly cartService: CartService;
   private readonly userService: UsersService;
   constructor() {
-    this.webhookSecret = process.env.PAYSTACK_WEBHOOK_SECRET;
+    this.webhookSecret = process.env.PAYSTACK_WEBHOOK_SECRET || process.env.PAYSTACK_SECRET_KEY;
     if (!this.webhookSecret) {
-      throw new Error('PAYSTACK_WEBHOOK_SECRET environment variable is required');
+      throw new Error('PAYSTACK_SECRET_KEY environment variable is required');
     }
     this.paymentService = new PaymentService();
     this.orderService = new OrderService();
