@@ -89,7 +89,12 @@ class RoleService {
       userRole = await UserRoleModel.findOne({ userId }).populate('roleId');
     }
     if (!userRole) return false;
-    return userRole.roleId.permissions.includes(permission);
+
+    const role = userRole.roleId as unknown as Role | undefined | null;
+    if (!role) return false;
+    if (!Array.isArray((role as any).permissions)) return false;
+
+    return (role as any).permissions.includes(permission);
   }
   public async hasRole(userId: string, roleName: string): Promise<boolean> {
     const role = await RoleModel.findOne({ name: roleName });
