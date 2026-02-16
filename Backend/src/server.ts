@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import 'module-alias/register';
 import App from '@/app';
 import AuthRoute from '@/modules/auth/auth.route';
 import IndexRoute from '@/modules/index.route';

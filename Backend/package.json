@@ -5,6 +5,20 @@
   "description": "Dugod API",
   "license": "ISC",
   "author": "Dugod",
+  "_moduleAliases": {
+    "@": "dist",
+    "@config": "dist/config",
+    "@controllers": "dist/controllers",
+    "@databases": "dist/databases",
+    "@dtos": "dist/dtos",
+    "@exceptions": "dist/exceptions",
+    "@interfaces": "dist/interfaces",
+    "@middlewares": "dist/middlewares",
+    "@models": "dist/models",
+    "@routes": "dist/routes",
+    "@services": "dist/services",
+    "@utils": "dist/utils"
+  },
   "scripts": {
     "start": "npm run build && cross-env NODE_ENV=production node dist/server.js",
     "dev": "cross-env NODE_ENV=development NODE_OPTIONS=--max-old-space-size=4096 nodemon",
