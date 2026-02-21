@@ -39,6 +39,14 @@ const nextConfig: NextConfig = {
         hostname: 'dugodofficial-public.s3.eu-north-1.amazonaws.com',
       },
       {
+        protocol: 'https',
+        hostname: 'dugodofficial-public.s3.eu-north-1.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'dugod-public.s3.eu-north-1.amazonaws.com',
+      },
+      {
         protocol: 'http',
         hostname: '127.0.0.1',
         port: '3000',
