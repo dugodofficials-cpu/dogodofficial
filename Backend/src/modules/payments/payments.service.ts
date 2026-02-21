@@ -29,18 +29,77 @@ import { isEmpty } from '@utils/util';
 import { v4 as uuidv4 } from 'uuid';
 import PaystackProvider from './integrations/paystack-provider';
 import cryptoProvider from './integrations/crypto-provider';
+import OrderService from '@/modules/orders/orders.service';
+import { OrderStatus } from '@/modules/orders/orders.interface';
+import { User } from '@/modules/users/users.interface';
 
 export class PaymentService {
   private payments = PaymentModel;
   private transactions = PaymentTransactionModel;
   private refunds = PaymentRefundModel;
   private paystackProvider: PaystackProvider;
+  private orderService: OrderService;
   constructor() {
     this.paystackProvider = new PaystackProvider(process.env.PAYSTACK_SECRET_KEY);
+    this.orderService = new OrderService();
   }
   public async findAllPayments(): Promise<Payment[]> {
     const payments: Payment[] = await this.payments.find().populate('user').populate('order');
     return payments;
+  }
+
+  public async findProcessingCryptoPayments(): Promise<Payment[]> {
+    return this.payments
+      .find({ status: PaymentStatus.PROCESSING, 'paymentDetails.provider': PaymentProvider.CRYPTO })
+      .populate('user')
+      .populate('order')
+      .sort({ initiatedAt: -1 });
+  }
+
+  public async reviewCryptoPayment(params: {
+    paymentId: string;
+    status: PaymentStatus.COMPLETED | PaymentStatus.FAILED;
+    adminUser: User;
+    notes?: string;
+  }): Promise<Payment> {
+    const { paymentId, status, adminUser, notes } = params;
+    const payment = await this.findPaymentById(paymentId);
+
+    if (payment.paymentDetails?.provider !== PaymentProvider.CRYPTO) {
+      throw new HttpException(400, 'Payment is not a crypto payment');
+    }
+
+    if (payment.status !== PaymentStatus.PROCESSING) {
+      throw new HttpException(400, `Only processing crypto payments can be reviewed. Current status: ${payment.status}`);
+    }
+
+    const updatedPayment = await this.updatePayment(paymentId, {
+      status,
+      notes: notes ?? payment.notes,
+      metadata: {
+        ...payment.metadata,
+        cryptoReview: {
+          reviewedAt: new Date(),
+          reviewedBy: adminUser?._id,
+          reviewedByEmail: adminUser?.email,
+          status,
+        },
+      },
+    });
+
+    if (updatedPayment.order && status === PaymentStatus.COMPLETED) {
+      await this.orderService.updateOrderStatus(
+        updatedPayment.order._id.toString(),
+        {
+          status: OrderStatus.CONFIRMED,
+          paymentStatus: PaymentStatus.COMPLETED,
+          notes: `Crypto payment approved. TXID: ${updatedPayment.txid || updatedPayment.paymentDetails?.transactionId || ''}`,
+        } as any,
+        adminUser,
+      );
+    }
+
+    return updatedPayment;
   }
   public async findPaymentById(paymentId: string): Promise<Payment> {
     if (isEmpty(paymentId)) throw new HttpException(400, 'PaymentId is empty');
@@ -201,18 +260,28 @@ export class PaymentService {
     const payment = await this.payments.findById(paymentId);
     if (!payment) return;
 
-    const expectedAddress = process.env.CRYPTO_WALLET_ADDRESS; 
+    const expectedAddress = payment.paymentDetails?.cryptoAddress || process.env.CRYPTO_WALLET_ADDRESS;
     const expectedAmount = payment.amount;
 
-    const { status, details } = await cryptoProvider.validateTransaction(txid, expectedAmount, expectedAddress);
+    const chain = typeof payment.metadata?.chain === 'string' ? payment.metadata.chain : payment.paymentDetails?.walletType;
+    const coin = typeof payment.metadata?.coin === 'string' ? payment.metadata.coin : payment.paymentDetails?.cryptoCurrency;
 
     await this.payments.findByIdAndUpdate(paymentId, {
-      $set: { 
-        status,
-        metadata: { ...payment.metadata, blockchainDetails: details },
-        completedAt: status === PaymentStatus.COMPLETED ? new Date() : undefined,
-        failedAt: status === PaymentStatus.FAILED ? new Date() : undefined,
-      }
+      $set: {
+        status: PaymentStatus.PROCESSING,
+        metadata: {
+          ...payment.metadata,
+          blockchainDetails: {
+            note: 'Crypto payments require manual verification. TXID has been received and queued for review.',
+            txid,
+            chain,
+            coin,
+            expectedAddress,
+            expectedAmount,
+            currency: payment.currency,
+          },
+        },
+      },
     });
   }
 
