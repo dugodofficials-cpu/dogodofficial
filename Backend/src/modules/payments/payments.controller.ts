@@ -118,6 +118,41 @@ class PaymentController {
       next(error);
     }
   };
+
+  public getProcessingCryptoPayments = async (req: RequestWithUser, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const payments: Payment[] = await this.paymentService.findProcessingCryptoPayments();
+      res.status(200).json({ data: payments, message: 'findProcessingCryptoPayments' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public reviewCryptoPayment = async (req: RequestWithUser, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw new HttpException(401, 'Authentication token missing');
+      }
+
+      const paymentId: string = req.params.id;
+      const { status, notes }: { status: PaymentStatus; notes?: string } = req.body;
+
+      if (![PaymentStatus.COMPLETED, PaymentStatus.FAILED].includes(status)) {
+        throw new HttpException(400, 'Invalid review status. Must be completed or failed');
+      }
+
+      const payment: Payment = await this.paymentService.reviewCryptoPayment({
+        paymentId,
+        status: status as PaymentStatus.COMPLETED | PaymentStatus.FAILED,
+        adminUser: req.user,
+        notes,
+      });
+
+      res.status(200).json({ data: payment, message: 'cryptoPaymentReviewed' });
+    } catch (error) {
+      next(error);
+    }
+  };
   public getOrderPayments = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const orderId: string = req.params.orderId;
@@ -194,7 +229,22 @@ class PaymentController {
   public submitCryptoHash = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const paymentId: string = req.params.id;
-      const { txid }: { txid: string } = req.body;
+      const { txid, metadata }: { txid: string; metadata?: Record<string, any> } = req.body;
+
+      if (metadata && typeof metadata === 'object') {
+        const payment = await this.paymentService.findPaymentById(paymentId);
+        const nextPaymentDetails = {
+          ...payment.paymentDetails,
+          cryptoAddress: typeof metadata.address === 'string' ? metadata.address : payment.paymentDetails?.cryptoAddress,
+          cryptoCurrency: typeof metadata.coin === 'string' ? metadata.coin : payment.paymentDetails?.cryptoCurrency,
+          walletType: typeof metadata.chain === 'string' ? metadata.chain : payment.paymentDetails?.walletType,
+        };
+        await this.paymentService.updatePayment(paymentId, {
+          paymentDetails: nextPaymentDetails as any,
+          metadata: { ...payment.metadata, ...metadata },
+        });
+      }
+
       const updatePaymentData: Payment = await this.paymentService.submitCryptoHash(paymentId, txid);
       res.status(200).json({ data: updatePaymentData, message: 'hashSubmitted' });
     } catch (error) {
@@ -203,7 +253,7 @@ class PaymentController {
   };
   public submitCryptoHashByOrder = async (req: RequestWithUser, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { orderId, txid }: { orderId: string; txid: string } = req.body;
+      const { orderId, txid, metadata }: { orderId: string; txid: string; metadata?: Record<string, any> } = req.body;
       const payments = await this.paymentService.getPayments({ orderId });
       
       let payment = payments.find(p => p.paymentDetails.provider === PaymentProvider.CRYPTO);
@@ -223,7 +273,23 @@ class PaymentController {
           paymentDetails: {
             method: PaymentChannel.CRYPTO,
             provider: PaymentProvider.CRYPTO,
+            walletType: typeof metadata?.chain === 'string' ? metadata.chain : undefined,
+            cryptoCurrency: typeof metadata?.coin === 'string' ? metadata.coin : undefined,
+            cryptoAddress: typeof metadata?.address === 'string' ? metadata.address : undefined,
           }
+        });
+      }
+
+      if (payment && metadata && typeof metadata === 'object') {
+        const nextPaymentDetails = {
+          ...payment.paymentDetails,
+          cryptoAddress: typeof metadata.address === 'string' ? metadata.address : payment.paymentDetails?.cryptoAddress,
+          cryptoCurrency: typeof metadata.coin === 'string' ? metadata.coin : payment.paymentDetails?.cryptoCurrency,
+          walletType: typeof metadata.chain === 'string' ? metadata.chain : payment.paymentDetails?.walletType,
+        };
+        payment = await this.paymentService.updatePayment(payment._id.toString(), {
+          paymentDetails: nextPaymentDetails as any,
+          metadata: { ...payment.metadata, ...metadata },
         });
       }
 
