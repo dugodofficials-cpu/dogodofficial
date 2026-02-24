@@ -68,3 +68,10 @@ Thumbs.db
 
 # Wrangler
 .wrangler/
+
+# Sensitive local files
+*deploy_key*
+ssh_config*
+Cred.txt
+DBbackup*
+*.zip
