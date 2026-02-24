@@ -168,7 +168,9 @@ class AuthService {
     return { expiresIn, token: sign(dataStoredInToken, secretKey, { expiresIn }) };
   }
   public createCookie(tokenData: TokenData): string {
-    return `Authorization=${tokenData.token}; HttpOnly; Max-Age=${tokenData.expiresIn};`;
+    const isProd = process.env.NODE_ENV === 'production';
+    const secureFlag = isProd ? ' Secure;' : '';
+    return `Authorization=${tokenData.token}; HttpOnly; Path=/; SameSite=Lax;${secureFlag} Max-Age=${tokenData.expiresIn};`;
   }
   public async signupGoogle(userData: SignUpGoogleDto): Promise<{ user: User, token: string, cookie: string; message: string }> {
     if (isEmpty(userData)) throw new HttpException(400, 'userData is empty');

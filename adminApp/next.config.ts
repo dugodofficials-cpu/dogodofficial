@@ -51,6 +51,39 @@ const apiUrl = resolveApiBaseUrl();
 const apiHost = new URL(apiUrl).hostname;
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_BUILD_SHA:
+      process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || 'unknown',
+  },
+  async headers() {
+    const isProd = process.env.NODE_ENV === 'production';
+
+    const baseHeaders = [
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      {
+        key: 'Permissions-Policy',
+        value: 'camera=(), microphone=(), geolocation=()'
+      },
+      // Helps mitigate XSS in some contexts; modern browsers mostly ignore this but it's safe.
+      { key: 'X-XSS-Protection', value: '0' },
+    ] as { key: string; value: string }[];
+
+    if (isProd) {
+      baseHeaders.push({
+        key: 'Strict-Transport-Security',
+        value: 'max-age=15552000; includeSubDomains',
+      });
+    }
+
+    return [
+      {
+        source: '/(.*)',
+        headers: baseHeaders,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
@@ -80,15 +113,19 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'dugod-media.s3.eu-north-1.amazonaws.com',
+      },
+      {
+        protocol: 'https',
         hostname: 'res.cloudinary.com',
       },
       {
         protocol: 'https',
-        hostname: 'dugodofficial-public.s3.eu-north-1.amazonaws.com',
+        hostname: 'dugod-public.s3.eu-north-1.amazonaws.com',
       },
       {
         protocol: 'https',
-        hostname: 'dugod-public.s3.eu-north-1.amazonaws.com',
+        hostname: 'dugodofficial-public.s3.eu-north-1.amazonaws.com',
       },
       {
         protocol: 'http',

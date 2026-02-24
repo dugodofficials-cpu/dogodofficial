@@ -1,6 +1,34 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  async headers() {
+    const isProd = process.env.NODE_ENV === 'production';
+
+    const baseHeaders = [
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      {
+        key: 'Permissions-Policy',
+        value: 'camera=(), microphone=(), geolocation=()'
+      },
+      { key: 'X-XSS-Protection', value: '0' },
+    ] as { key: string; value: string }[];
+
+    if (isProd) {
+      baseHeaders.push({
+        key: 'Strict-Transport-Security',
+        value: 'max-age=15552000; includeSubDomains',
+      });
+    }
+
+    return [
+      {
+        source: '/(.*)',
+        headers: baseHeaders,
+      },
+    ];
+  },
   async rewrites() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.dugodofficial.com';
     return [
@@ -33,13 +61,8 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'res.cloudinary.com',
-	pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'dugodofficial-public.s3.eu-north-1.amazonaws.com',
-	pathname: '/**',
+        hostname: 'dugod-media.s3.eu-north-1.amazonaws.com',
+        pathname: '/**',
       },
       {
         protocol: 'https',
@@ -49,7 +72,17 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'dugod-public.s3.eu-north-1.amazonaws.com',
-	pathname: '/**',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'dugodofficial-public.s3.eu-north-1.amazonaws.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '/**',
       },
       {
         protocol: 'http',
