@@ -173,18 +173,6 @@ class ProductService {
           throw new HttpException(400, 'Physical products require stock quantity');
         }
       } else if (productData.type === ProductType.DIGITAL) {
-        if (!productData.digitalDeliveryInfo) {
-          throw new HttpException(400, 'Digital products require delivery information');
-        }
-        if (!productData.album) {
-          throw new HttpException(400, 'Digital products require album name');
-        }
-        if (!productData.albumPrice) {
-          throw new HttpException(400, 'Digital products require album price');
-        }
-        if (!productData.duration) {
-          throw new HttpException(400, 'Digital products require duration');
-        }
       } else if (productData.type === ProductType.EBOOK) {
       } else if (productData.type === ProductType.BUNDLE) {
         if (!productData.bundleItems || productData.bundleItems.length === 0) {
