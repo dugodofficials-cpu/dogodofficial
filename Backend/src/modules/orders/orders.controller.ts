@@ -4,6 +4,7 @@ import { Order, OrderStatistics, OrderStatus } from '@/modules/orders/orders.int
 import OrderService from '@/modules/orders/orders.service';
 import { RequestWithUser } from '@/interfaces/auth.interface';
 import { User } from '../users/users.interface';
+import { logger } from '@/utils/logger';
 class OrderController {
   public orderService = new OrderService();
   public getOrders = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -85,6 +86,11 @@ class OrderController {
     try {
       const orderId: string = req.params.id;
       const statusData: UpdateOrderStatusDto = req.body;
+
+      logger.info(
+        `Order status update requested: orderId=${orderId} newStatus=${statusData.status} userId=${req.user?._id} email=${req.user?.email} ip=${req.ip} ua=${req.get('user-agent')}`,
+      );
+
       const updateOrderData: Order = await this.orderService.updateOrderStatus(orderId, statusData, req.user as User);
       res.status(200).json({ data: updateOrderData, message: 'status updated' });
     } catch (error) {

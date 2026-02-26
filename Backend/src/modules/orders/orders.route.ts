@@ -23,10 +23,10 @@ class OrderRoute implements Routes {
     this.router.get(`${this.path}/:id`, authMiddleware, this.orderController.getOrderById);
     this.router.post(`${this.path}`, authMiddleware, validationMiddleware(CreateOrderDto, 'body'), this.orderController.createOrder);
     this.router.post(`${this.path}/:id/resend-confirmation`, [authMiddleware, hasPermission(Permission.CREATE_ORDER)], this.orderController.resendOrderConfirmation);
-    this.router.put(`${this.path}/:id`, authMiddleware, validationMiddleware(UpdateOrderDto, 'body', true), this.orderController.updateOrder);
-    this.router.patch(`${this.path}/:id/status`, authMiddleware, validationMiddleware(UpdateOrderStatusDto, 'body'), this.orderController.updateOrderStatus);
-    this.router.patch(`${this.path}/:id/delivery`, authMiddleware, validationMiddleware(UpdateDeliveryStatusDto, 'body'), this.orderController.updateDeliveryStatus);
-    this.router.delete(`${this.path}/:id`, authMiddleware, this.orderController.deleteOrder);
+    this.router.put(`${this.path}/:id`, [authMiddleware, hasPermission(Permission.UPDATE_ORDER)], validationMiddleware(UpdateOrderDto, 'body', true), this.orderController.updateOrder);
+    this.router.patch(`${this.path}/:id/status`, [authMiddleware, hasPermission(Permission.UPDATE_ORDER)], validationMiddleware(UpdateOrderStatusDto, 'body'), this.orderController.updateOrderStatus);
+    this.router.patch(`${this.path}/:id/delivery`, [authMiddleware, hasPermission(Permission.UPDATE_ORDER)], validationMiddleware(UpdateDeliveryStatusDto, 'body'), this.orderController.updateDeliveryStatus);
+    this.router.delete(`${this.path}/:id`, [authMiddleware, hasPermission(Permission.DELETE_ORDER)], this.orderController.deleteOrder);
   }
 }
 export default OrderRoute;

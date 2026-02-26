@@ -221,6 +221,10 @@ class OrderService {
       notes: statusData.notes,
       paymentStatus: statusData.paymentStatus,
     };
+
+    if (!updateData.notes) {
+      updateData.notes = `Status changed ${order.status} -> ${statusData.status} by ${user.firstName} ${user.lastName} ${user.email}`;
+    }
     switch (statusData.status) {
       case OrderStatus.CONFIRMED:
         try {
