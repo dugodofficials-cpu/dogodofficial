@@ -61,23 +61,14 @@ const productSchema: Schema = new Schema(
     },
     album: {
       type: String,
-      required: function () {
-        return this.type === ProductType.DIGITAL;
-      },
       trim: true,
     },
     albumPrice: {
       type: Number,
-      required: function () {
-        return this.type === ProductType.DIGITAL;
-      },
       min: 0,
     },
     duration: {
       type: String,
-      required: function () {
-        return this.type === ProductType.DIGITAL;
-      },
     },
     description: {
       type: String,
