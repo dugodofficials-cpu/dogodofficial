@@ -21,7 +21,10 @@ export const rateLimiter = (
     keyGenerator: (req: Request): string => {
       let userId: string | undefined;
       try {
-        const token = (req as any).cookies?.['Authorization'] || (req.header('Authorization') ? req.header('Authorization')!.split('Bearer ')[1] : null);
+        const token =
+          (req as any).cookies?.['dugo-auth-token'] ||
+          (req as any).cookies?.['Authorization'] ||
+          (req.header('Authorization') ? req.header('Authorization')!.split('Bearer ')[1] : null);
         if (token) {
           const decoded = verify(token, SECRET_KEY) as DataStoredInToken;
           userId = decoded?._id?.toString?.();

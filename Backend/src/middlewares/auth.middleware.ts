@@ -8,7 +8,10 @@ import SessionService from '@/modules/auth/session.service';
 const sessionService = new SessionService();
 const authMiddleware = async (req: RequestWithUser, res: Response, next: NextFunction) => {
   try {
-    const Authorization = req.cookies['dugo-auth-token'] || (req.header('Authorization') ? req.header('Authorization').split('Bearer ')[1] : null);
+    const Authorization =
+      req.cookies['dugo-auth-token'] ||
+      req.cookies['Authorization'] ||
+      (req.header('Authorization') ? req.header('Authorization').split('Bearer ')[1] : null);
     if (Authorization) {
       const session = await sessionService.findSessionByToken(Authorization);
       if (!session) {

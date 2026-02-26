@@ -81,6 +81,7 @@ class AuthController {
       next(error);
     }
   };
+
   public logOut = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const userData: User = req.user;
@@ -88,12 +89,16 @@ class AuthController {
       const logOutUserData: User = await this.authService.logout(userData, token);
       const isProd = process.env.NODE_ENV === 'production';
       const secureFlag = isProd ? ' Secure;' : '';
-      res.setHeader('Set-Cookie', [`Authorization=; HttpOnly; Path=/; SameSite=Lax;${secureFlag} Max-Age=0;`]);
+      res.setHeader('Set-Cookie', [
+        `Authorization=; HttpOnly; Path=/; SameSite=Lax;${secureFlag} Max-Age=0;`,
+        `dugo-auth-token=; HttpOnly; Path=/; SameSite=Lax;${secureFlag} Max-Age=0;`,
+      ]);
       res.status(200).json({ data: logOutUserData, message: 'logout successful' });
     } catch (error) {
       next(error);
     }
   };
+
   public getMe = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const userData: User = req.user;
