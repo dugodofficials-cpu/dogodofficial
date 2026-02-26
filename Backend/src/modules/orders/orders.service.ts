@@ -225,6 +225,19 @@ class OrderService {
       case OrderStatus.CONFIRMED:
         try {
           const populatedOrder = await this.orders.findById(order._id).populate('user').populate('items.product');
+          
+          // Check if order contains only digital products
+          const hasPhysicalItems = populatedOrder.items.some((item: any) => 
+            item.product && item.product.type === ProductType.PHYSICAL
+          );
+
+          // For digital products, automatically set delivery status to DELIVERED
+          if (!hasPhysicalItems) {
+            updateData['shippingDetails.deliveryStatus'] = DeliveryStatus.DELIVERED;
+            updateData['status'] = OrderStatus.DELIVERED;
+            updateData['deliveredAt'] = new Date();
+          }
+
           Promise.resolve()
             .then(() => this.orderEmailService.sendOrderConfirmation(populatedOrder, populatedOrder.user))
             .catch(error => {
