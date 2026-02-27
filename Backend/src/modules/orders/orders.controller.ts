@@ -63,10 +63,18 @@ class OrderController {
       next(error);
     }
   };
-  public createOrder = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  public createOrder = async (req: RequestWithUser, res: Response, next: NextFunction): Promise<void> => {
     try {
       const orderData: CreateOrderDto = req.body;
-      const createOrderData: Order = await this.orderService.createOrder(orderData);
+
+      logger.info(`Order create requested: userId=${req.user?._id} email=${req.user?.email} ip=${req.ip} ua=${req.get('user-agent')}`);
+
+      const safeOrderData: CreateOrderDto = {
+        ...orderData,
+        user: req.user?._id?.toString(),
+      };
+
+      const createOrderData: Order = await this.orderService.createOrder(safeOrderData);
       res.status(201).json({ data: createOrderData, message: 'created' });
     } catch (error) {
       next(error);

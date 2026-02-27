@@ -130,6 +130,22 @@ export class PaystackWebhookHandler {
       if (!order) {
         throw new HttpException(404, `Order ${orderId} not found`);
       }
+
+      const paidAmount = data.amount / 100;
+      const expectedAmount = Number(order.total);
+      const amountMatches = Number.isFinite(expectedAmount) && Math.abs(paidAmount - expectedAmount) < 0.01;
+      const currencyMatches = typeof data.currency === 'string' && String(order.currency || 'NGN').toUpperCase() === data.currency.toUpperCase();
+      if (!amountMatches || !currencyMatches) {
+        logger.error('Paystack webhook amount/currency mismatch - refusing to confirm order', {
+          orderId,
+          reference: data.reference,
+          paidAmount,
+          expectedAmount,
+          paidCurrency: data.currency,
+          expectedCurrency: order.currency || 'NGN',
+        });
+        return;
+      }
       const transaction = await PaymentTransactionModel.findOneAndUpdate(
         { reference: data.reference },
         {

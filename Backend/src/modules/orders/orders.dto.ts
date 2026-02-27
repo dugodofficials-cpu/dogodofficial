@@ -88,8 +88,9 @@ export class OrderItemDto {
   public selectedOptions?: string[];
 }
 export class CreateOrderDto {
+  @IsOptional()
   @IsMongoId()
-  public user: string;
+  public user?: string;
   @IsArray()
   @ValidateNested({ each: true })
   @ArrayMinSize(1)
