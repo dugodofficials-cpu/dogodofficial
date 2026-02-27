@@ -157,21 +157,27 @@ class AuthService {
     const result = await this.passwordResetService.resetPassword(token, newPassword);
     return { message: result.message };
   }
+
   public async verifyResetToken(token: string): Promise<{ valid: boolean; message: string }> {
     if (isEmpty(token)) throw new HttpException(400, 'Token is required');
     return await this.passwordResetService.verifyResetToken(token);
   }
+
   public createToken(user: User): TokenData {
     const dataStoredInToken: DataStoredInToken = { _id: user._id.toString() };
     const secretKey: string = SECRET_KEY;
     const expiresIn: number = 180 * 24 * 60 * 60;
     return { expiresIn, token: sign(dataStoredInToken, secretKey, { expiresIn }) };
   }
+
   public createCookie(tokenData: TokenData): string {
     const isProd = process.env.NODE_ENV === 'production';
     const secureFlag = isProd ? ' Secure;' : '';
-    return `Authorization=${tokenData.token}; HttpOnly; Path=/; SameSite=Lax;${secureFlag} Max-Age=${tokenData.expiresIn};`;
+    const sameSite = isProd ? 'None' : 'Lax';
+    const domainFlag = isProd ? ' Domain=.dugodofficial.com;' : '';
+    return `Authorization=${tokenData.token}; HttpOnly; Path=/; SameSite=${sameSite};${secureFlag}${domainFlag} Max-Age=${tokenData.expiresIn};`;
   }
+
   public async signupGoogle(userData: SignUpGoogleDto): Promise<{ user: User, token: string, cookie: string; message: string }> {
     if (isEmpty(userData)) throw new HttpException(400, 'userData is empty');
     try {

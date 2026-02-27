@@ -89,9 +89,11 @@ class AuthController {
       const logOutUserData: User = await this.authService.logout(userData, token);
       const isProd = process.env.NODE_ENV === 'production';
       const secureFlag = isProd ? ' Secure;' : '';
+      const sameSite = isProd ? 'None' : 'Lax';
+      const domainFlag = isProd ? ' Domain=.dugodofficial.com;' : '';
       res.setHeader('Set-Cookie', [
-        `Authorization=; HttpOnly; Path=/; SameSite=Lax;${secureFlag} Max-Age=0;`,
-        `dugo-auth-token=; HttpOnly; Path=/; SameSite=Lax;${secureFlag} Max-Age=0;`,
+        `Authorization=; HttpOnly; Path=/; SameSite=${sameSite};${secureFlag}${domainFlag} Max-Age=0;`,
+        `dugo-auth-token=; HttpOnly; Path=/; SameSite=${sameSite};${secureFlag}${domainFlag} Max-Age=0;`,
       ]);
       res.status(200).json({ data: logOutUserData, message: 'logout successful' });
     } catch (error) {
