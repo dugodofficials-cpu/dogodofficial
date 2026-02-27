@@ -215,7 +215,7 @@ export default function GameRulesPage() {
               fontWeight: 700,
             }}
           >
-            🔍 Start Searching for Clues
+            Buy a Ticket
           </Typography>
         </Button>
       </Box>

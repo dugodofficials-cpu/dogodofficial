@@ -223,7 +223,7 @@ export default function CartDrawer({ open, onClose }: CartDrawerProps) {
                       >
                         {item.product.name}
                       </Typography>
-                      {!!item.selectedOptions?.size && (
+                      {item.product.type === ProductType.PHYSICAL && !!item.selectedOptions?.size && (
                         <Typography
                           sx={{
                             color: '#FFF',
