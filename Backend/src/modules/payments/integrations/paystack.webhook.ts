@@ -134,7 +134,9 @@ export class PaystackWebhookHandler {
       const paidAmount = data.amount / 100;
       const expectedAmount = Number(order.total);
       const amountMatches = Number.isFinite(expectedAmount) && Math.abs(paidAmount - expectedAmount) < 0.01;
-      const currencyMatches = typeof data.currency === 'string' && String(order.currency || 'NGN').toUpperCase() === data.currency.toUpperCase();
+
+      const expectedCurrency = 'NGN';
+      const currencyMatches = typeof data.currency === 'string' && expectedCurrency.toUpperCase() === data.currency.toUpperCase();
       if (!amountMatches || !currencyMatches) {
         logger.error('Paystack webhook amount/currency mismatch - refusing to confirm order', {
           orderId,
@@ -142,7 +144,7 @@ export class PaystackWebhookHandler {
           paidAmount,
           expectedAmount,
           paidCurrency: data.currency,
-          expectedCurrency: order.currency || 'NGN',
+          expectedCurrency,
         });
         return;
       }
