@@ -3,6 +3,7 @@ import { CreateCartDto, UpdateCartDto, AddItemDto, UpdateItemDto, ApplyDiscountD
 import { Cart } from '@/modules/cart/cart.interface';
 import CartService from '@/modules/cart/cart.service';
 import { RequestWithUser } from '@/interfaces/auth.interface';
+import { logger } from '@/utils/logger';
 class CartController {
   public cartService = new CartService();
   public getCarts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -31,10 +32,18 @@ class CartController {
       next(error);
     }
   };
-  public createCart = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  public createCart = async (req: RequestWithUser, res: Response, next: NextFunction): Promise<void> => {
     try {
       const cartData: CreateCartDto = req.body;
-      const createCartData: Cart = await this.cartService.createCart(cartData);
+
+      logger.info(`Cart create requested: userId=${req.user?._id} email=${req.user?.email} ip=${req.ip} ua=${req.get('user-agent')}`);
+
+      const safeCartData: CreateCartDto = {
+        ...cartData,
+        user: req.user?._id?.toString(),
+      };
+
+      const createCartData: Cart = await this.cartService.createCart(safeCartData);
       res.status(201).json({ data: createCartData, message: 'created' });
     } catch (error) {
       next(error);

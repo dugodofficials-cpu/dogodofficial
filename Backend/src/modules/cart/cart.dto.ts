@@ -74,8 +74,9 @@ export class ShippingEstimateDto {
   public restrictions?: string[];
 }
 export class CreateCartDto {
+  @IsOptional()
   @IsMongoId()
-  public user: string;
+  public user?: string;
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
