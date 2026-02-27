@@ -103,7 +103,7 @@ function Row({ order, index, page, rowsPerPage, onViewOrder, selected, onToggleS
             onClick={(e) => e.stopPropagation()}
             onChange={() => onToggleSelected(order._id)}
             size="small"
-            sx={{ color: 'white' }}
+            sx={{ color: '#111' }}
           />
         </TableCell>
         <TableCell>
