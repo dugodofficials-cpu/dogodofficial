@@ -83,8 +83,8 @@ class App {
       }
       next();
     });
-    this.app.use(express.json({ limit: '3gb' }));
-    this.app.use(express.urlencoded({ extended: true, limit: '3gb' }));
+    this.app.use(express.json({ limit: '2mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '2mb' }));
     this.app.use(cookieParser());
     this.app.use((req, res, next) => {
       if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {

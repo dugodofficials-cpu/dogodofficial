@@ -45,6 +45,14 @@ export const authLimiter = rateLimiter(15 * 60 * 1000, 100, {
   status: 429,
   error: 'Too many login attempts. Try again later.',
 });
+export const orderCreateLimiter = rateLimiter(15 * 60 * 1000, 30, {
+  status: 429,
+  error: 'Too many order attempts. Try again later.',
+});
+export const cartWriteLimiter = rateLimiter(15 * 60 * 1000, 120, {
+  status: 429,
+  error: 'Too many cart requests. Try again later.',
+});
 export const securityLimiter = rateLimiter(5 * 60 * 1000, 10, {
   status: 429,
   error: 'Too many requests. Access temporarily restricted.',

@@ -4,6 +4,7 @@ import { CreateOrderDto, UpdateOrderDto, UpdateOrderStatusDto, UpdateDeliverySta
 import { Routes } from '@interfaces/routes.interface';
 import validationMiddleware from '@middlewares/validation.middleware';
 import authMiddleware from '@middlewares/auth.middleware';
+import { orderCreateLimiter } from '@middlewares/rateLimit.middleware';
 import { hasPermission } from '@/middlewares/permission.middleware';
 import { Permission } from '../roles/roles.interface';
 class OrderRoute implements Routes {
@@ -27,7 +28,7 @@ class OrderRoute implements Routes {
       this.orderController.bulkDeleteOrders,
     );
     this.router.get(`${this.path}/:id`, authMiddleware, this.orderController.getOrderById);
-    this.router.post(`${this.path}`, authMiddleware, validationMiddleware(CreateOrderDto, 'body'), this.orderController.createOrder);
+    this.router.post(`${this.path}`, [authMiddleware, orderCreateLimiter], validationMiddleware(CreateOrderDto, 'body'), this.orderController.createOrder);
     this.router.post(`${this.path}/:id/resend-confirmation`, [authMiddleware, hasPermission(Permission.CREATE_ORDER)], this.orderController.resendOrderConfirmation);
     this.router.put(`${this.path}/:id`, [authMiddleware, hasPermission(Permission.UPDATE_ORDER)], validationMiddleware(UpdateOrderDto, 'body', true), this.orderController.updateOrder);
     this.router.patch(`${this.path}/:id/status`, [authMiddleware, hasPermission(Permission.UPDATE_ORDER)], validationMiddleware(UpdateOrderStatusDto, 'body'), this.orderController.updateOrderStatus);
