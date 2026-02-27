@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
-import { CreateOrderDto, UpdateOrderDto, UpdateOrderStatusDto, UpdateDeliveryStatusDto, GetOrdersQueryDto } from '@/modules/orders/orders.dto';
+import { CreateOrderDto, UpdateOrderDto, UpdateOrderStatusDto, UpdateDeliveryStatusDto, GetOrdersQueryDto, BulkDeleteOrdersDto } from '@/modules/orders/orders.dto';
 import { Order, OrderStatistics, OrderStatus } from '@/modules/orders/orders.interface';
 import OrderService from '@/modules/orders/orders.service';
 import { RequestWithUser } from '@/interfaces/auth.interface';
@@ -120,6 +120,21 @@ class OrderController {
       const orderId: string = req.params.id;
       const deleteOrderData: Order = await this.orderService.deleteOrder(orderId);
       res.status(200).json({ data: deleteOrderData, message: 'deleted' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public bulkDeleteOrders = async (req: RequestWithUser, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const body: BulkDeleteOrdersDto = req.body;
+
+      logger.warn(
+        `Bulk order delete requested: count=${body.orderIds?.length} userId=${req.user?._id} email=${req.user?.email} ip=${req.ip} ua=${req.get('user-agent')}`,
+      );
+
+      const result = await this.orderService.bulkSoftDeleteOrders(body.orderIds, req.user as User, body.notes);
+      res.status(200).json({ data: result, message: 'bulk deleted' });
     } catch (error) {
       next(error);
     }

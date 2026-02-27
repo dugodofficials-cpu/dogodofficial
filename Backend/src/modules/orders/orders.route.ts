@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import OrderController from '@/modules/orders/orders.controller';
-import { CreateOrderDto, UpdateOrderDto, UpdateOrderStatusDto, UpdateDeliveryStatusDto } from '@/modules/orders/orders.dto';
+import { CreateOrderDto, UpdateOrderDto, UpdateOrderStatusDto, UpdateDeliveryStatusDto, BulkDeleteOrdersDto } from '@/modules/orders/orders.dto';
 import { Routes } from '@interfaces/routes.interface';
 import validationMiddleware from '@middlewares/validation.middleware';
 import authMiddleware from '@middlewares/auth.middleware';
@@ -20,6 +20,12 @@ class OrderRoute implements Routes {
     this.router.get(`${this.path}/user/:userId`, authMiddleware, this.orderController.getUserOrders);
     this.router.get(`${this.path}/status/:status`, authMiddleware, this.orderController.getOrdersByStatus);
     this.router.get(`${this.path}/date-range`, authMiddleware, this.orderController.getOrdersByDateRange);
+    this.router.patch(
+      `${this.path}/bulk-delete`,
+      [authMiddleware, hasPermission(Permission.DELETE_ORDER)],
+      validationMiddleware(BulkDeleteOrdersDto, 'body'),
+      this.orderController.bulkDeleteOrders,
+    );
     this.router.get(`${this.path}/:id`, authMiddleware, this.orderController.getOrderById);
     this.router.post(`${this.path}`, authMiddleware, validationMiddleware(CreateOrderDto, 'body'), this.orderController.createOrder);
     this.router.post(`${this.path}/:id/resend-confirmation`, [authMiddleware, hasPermission(Permission.CREATE_ORDER)], this.orderController.resendOrderConfirmation);

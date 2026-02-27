@@ -194,6 +194,17 @@ export class UpdateDeliveryStatusDto {
   @IsString()
   public deliveryNotes?: string;
 }
+
+export class BulkDeleteOrdersDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsMongoId({ each: true })
+  public orderIds: string[];
+
+  @IsOptional()
+  @IsString()
+  public notes?: string;
+}
 export class GetOrdersQueryDto {
   @IsOptional()
   @IsNumber()

@@ -318,11 +318,21 @@ class OrderService {
   }
   public async deleteOrder(orderId: string): Promise<Order> {
     const order = await this.findOrderById(orderId);
-    if (order.status !== OrderStatus.CANCELLED) {
-      throw new HttpException(400, 'Only cancelled orders can be deleted');
-    }
-    const deleteOrderById: Order = await this.orders.findByIdAndDelete(orderId);
-    return deleteOrderById;
+    const updatedOrder: Order = await this.orders
+      .findByIdAndUpdate(
+        orderId,
+        {
+          $set: {
+            status: OrderStatus.DELETED,
+            cancelledAt: new Date(),
+            notes: order.notes || 'Order soft-deleted',
+          },
+        },
+        { new: true },
+      )
+      .populate('user')
+      .populate('items.product');
+    return updatedOrder;
   }
   public async convertBundlesToProducts(orderId: string): Promise<Order> {
     const order = await this.findOrderById(orderId);
