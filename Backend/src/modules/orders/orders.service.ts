@@ -17,6 +17,38 @@ class OrderService {
   public shippingService = new ShippingService();
   public couponService = new couponService();
   private orderEmailService = new OrderEmailService();
+
+  public async bulkSoftDeleteOrders(orderIds: string[], adminUser: User, notes?: string): Promise<{ matched: number; modified: number }> {
+    if (isEmpty(orderIds) || !Array.isArray(orderIds) || orderIds.length === 0) {
+      throw new HttpException(400, 'orderIds is empty');
+    }
+
+    const orders = await this.orders
+      .find({ _id: { $in: orderIds }, status: { $ne: OrderStatus.DELETED } })
+      .populate('items.product');
+
+    for (const order of orders) {
+      await this.restoreStock(order as any);
+    }
+
+    const auditNote = notes || `Bulk soft-deleted by ${adminUser.firstName} ${adminUser.lastName} ${adminUser.email}`;
+    const result = await this.orders.updateMany(
+      { _id: { $in: orderIds } },
+      {
+        $set: {
+          status: OrderStatus.DELETED,
+          cancelledAt: new Date(),
+          notes: auditNote,
+        },
+      },
+    );
+
+    return {
+      matched: (result as any).matchedCount ?? (result as any).n ?? 0,
+      modified: (result as any).modifiedCount ?? (result as any).nModified ?? 0,
+    };
+  }
+
   public async findAllOrders(query: GetOrdersQueryDto = {}): Promise<{ orders: Order[]; total: number; page: number; limit: number; totalPages: number }> {
     const {
       page = 1,
