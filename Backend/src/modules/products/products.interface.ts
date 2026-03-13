@@ -64,6 +64,7 @@ export interface Product {
   stockQuantity?: number;
   lowStockThreshold?: number;
   digitalDeliveryInfo?: DigitalDeliveryInfo;
+  previewUrl?: string;
   albumId?: string;
   ebookDeliveryInfo?: EbookDeliveryInfo;
   bundleItems?: BundleItem[];

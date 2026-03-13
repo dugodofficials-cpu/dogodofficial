@@ -144,6 +144,9 @@ const productSchema: Schema = new Schema(
     digitalDeliveryInfo: {
       type: digitalDeliveryInfoSchema,
     },
+    previewUrl: {
+      type: String,
+    },
     ebookDeliveryInfo: {
       type: ebookDeliveryInfoSchema,
     },

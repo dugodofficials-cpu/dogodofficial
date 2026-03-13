@@ -56,6 +56,11 @@ class ProductsRoute implements Routes {
       authMiddleware,
       this.productsController.downloadMedia
     );
+    this.router.get(
+      `${this.path}/:productId/preview`,
+      authMiddleware,
+      this.productsController.previewMedia
+    );
     this.router.put(`${this.path}/:id`, authMiddleware, validationMiddleware(UpdateProductDto, 'body', true), this.productsController.updateProduct);
     this.router.delete(`${this.path}/:id`, authMiddleware, this.productsController.deleteProduct);
     this.router.patch(`${this.path}/:id/stock`, authMiddleware, validationMiddleware({ quantity: 'number' }, 'body'), this.productsController.updateStock);

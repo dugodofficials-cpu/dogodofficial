@@ -134,6 +134,10 @@ export class CreateProductDto {
   @ValidateNested()
   @Type(() => DigitalDeliveryInfoDto)
   public digitalDeliveryInfo?: DigitalDeliveryInfoDto;
+
+  @IsOptional()
+  @IsString()
+  public previewUrl?: string;
   @IsOptional()
   @ValidateNested()
   @Type(() => EbookDeliveryInfoDto)

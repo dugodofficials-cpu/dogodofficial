@@ -78,6 +78,9 @@ class ProductsController {
           }
         };
         const updatedProduct = await this.productService.updateDigitalDeliveryInfo(createdProduct._id.toString(), updateData);
+        if (!updatedProduct.previewUrl) {
+          await this.productService.updateProduct(updatedProduct._id.toString(), { previewUrl: key } as UpdateProductDto);
+        }
         res.status(201).json({
           message: 'Product created with media successfully',
           data: {
@@ -321,6 +324,9 @@ class ProductsController {
           }
         };
         const updatedProduct = await this.productService.updateDigitalDeliveryInfo(productId, updateData);
+        if (!updatedProduct.previewUrl) {
+          await this.productService.updateProduct(productId, { previewUrl: key } as UpdateProductDto);
+        }
         res.status(200).json({
           message: 'File uploaded and linked to product successfully',
           data: {
@@ -409,6 +415,36 @@ class ProductsController {
           url: signedUrl,
           expiresIn: 604800
         }
+      });
+    } catch (error) {
+      console.error('Create Product Error:', error);
+      if (req.file) cleanupTempFiles(req.file);
+      if (req.files) cleanupTempFiles(req.files);
+      next(error);
+    }
+  };
+
+  public previewMedia = async (req: RequestWithUser, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const productId = req.params.productId;
+      const product = await this.productService.findProductById(productId);
+
+      const previewKey =
+        product.previewUrl ||
+        (product.type === ProductType.DIGITAL ? product.digitalDeliveryInfo?.downloadUrl : undefined);
+
+      if (!previewKey) {
+        throw new HttpException(404, 'Preview not available');
+      }
+
+      const signedUrl = await s3Service.getSignedUrl(previewKey);
+
+      res.status(200).json({
+        message: 'Preview URL generated successfully',
+        data: {
+          url: signedUrl,
+          expiresIn: 3600,
+        },
       });
     } catch (error) {
       console.error('Create Product Error:', error);
