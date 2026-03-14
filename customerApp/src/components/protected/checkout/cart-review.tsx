@@ -5,7 +5,6 @@ import { useCreateOrder } from '@/hooks/order';
 import { useUser } from '@/hooks/user';
 import { AppliedDiscount, CartItem, CartItemResponse } from '@/lib/api/cart';
 import { DeliveryStatus, OrderStatus } from '@/lib/api/order';
-import { ProductType } from '@/lib/api/products';
 import { ROUTES } from '@/util/paths';
 import { Box, Button, CircularProgress, TextField, Typography } from '@mui/material';
 import { UseQueryResult } from '@tanstack/react-query';
@@ -310,12 +309,12 @@ export default function CartReview({ onNext, hasPhysicalItems }: CartReviewProps
                     >
                       {item.product.name}
                     </Typography>
-                    {item.product.type === ProductType.PHYSICAL && item.selectedOptions?.size ? (
+                    {item.selectedOptions?.size ? (
                       <Typography
                         sx={{
                           color: '#7B7B7B',
-                          fontFamily: 'ClashDisplay-Medium',
-                          fontSize: '0.875rem',
+                          fontFamily: 'Satoshi',
+                          fontSize: '1rem',
                           marginBottom: 0.5,
                         }}
                       >
@@ -325,16 +324,16 @@ export default function CartReview({ onNext, hasPhysicalItems }: CartReviewProps
                     <Typography
                       sx={{
                         color: '#7B7B7B',
-                        fontFamily: 'ClashDisplay-Medium',
+                        fontFamily: 'Satoshi',
                         fontSize: '1rem',
                       }}
                     >
-                      {item.product.type === ProductType.PHYSICAL ? `Quantity: ${item.quantity}` : 'Digital'}
+                      {item.selectedOptions?.size ? `Quantity: ${item.quantity}` : 'Digital'}
                     </Typography>
                   </Box>
                   <Typography
                     sx={{
-                      color: '#fff',
+                      color: '#FFF',
                       fontFamily: 'ClashDisplay-Bold',
                       fontSize: '1.25rem',
                     }}

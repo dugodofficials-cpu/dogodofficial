@@ -1,4 +1,4 @@
-export enum PaymentStatus {
+﻿export enum PaymentStatus {
   PENDING = 'pending',
   PROCESSING = 'processing',
   COMPLETED = 'completed',
@@ -16,6 +16,7 @@ export enum OrderStatus {
   DELIVERED = 'DELIVERED',
   CANCELLED = 'CANCELLED',
   REFUNDED = 'REFUNDED',
+  DELETED = 'DELETED',
 }
 
 export enum DeliveryStatus {
@@ -56,6 +57,7 @@ export interface OrderItem {
     _id: string;
     name: string;
     price: number;
+    type?: string;
   };
   quantity: number;
   price: number;

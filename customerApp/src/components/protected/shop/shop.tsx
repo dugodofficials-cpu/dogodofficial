@@ -57,7 +57,13 @@ export default function Shop() {
   });
 
   const shopProducts = (physicalProducts?.data || []).filter(
-    (p) => p.type === ProductType.PHYSICAL || p.type === ProductType.DIGITAL,
+    (p) =>
+      ((p.type === ProductType.PHYSICAL ||
+        p.type === ProductType.BUNDLE ||
+        p.type === ProductType.EBOOK) ||
+        (p.type === ProductType.DIGITAL && !p.albumId)) &&
+      p.status === ProductStatus.ACTIVE &&
+      p.isActive === true,
   );
 
   const handlePageChange = (_: React.ChangeEvent<unknown>, value: number) => {

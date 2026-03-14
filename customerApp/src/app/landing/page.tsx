@@ -3,6 +3,10 @@
 import { useEffect, useMemo, type CSSProperties } from 'react';
 import { Cinzel, Cinzel_Decorative, Crimson_Pro } from 'next/font/google';
 
+type ParticleStyle = CSSProperties & {
+  ['--drift']?: string;
+};
+
 const cinzelDecorative = Cinzel_Decorative({
   weight: ['700', '900'],
   subsets: ['latin'],
@@ -104,11 +108,11 @@ export default function LandingPage() {
                   left: `${p.left}%`,
                   animationDuration: `${p.duration}s`,
                   animationDelay: `${p.delay}s`,
-                  ['--drift' as any]: `${p.drift}px`,
+                  ['--drift']: `${p.drift}px`,
                   width: `${p.size}px`,
                   height: `${p.size}px`,
                   opacity: p.opacity,
-                } as CSSProperties
+                } as ParticleStyle
               }
             />
           ))}
@@ -307,14 +311,14 @@ export default function LandingPage() {
 
       <style jsx global>{`
         .bb-root {
-          --gold: #c9a84c;
-          --gold-light: #f0d080;
-          --gold-dim: #7a5e1e;
-          --blood: #8b1a1a;
-          --dark: #080604;
-          --sand: #1a1208;
-          --text: #e8d9b0;
-          --dim: #7a6a45;
+          --gold: #2AC318;
+          --gold-light: #F3FFF5;
+          --gold-dim: rgba(42, 195, 24, 0.28);
+          --blood: #D91313;
+          --dark: #000000;
+          --sand: #000000;
+          --text: #EDEDED;
+          --dim: #7B7B7B;
 
           background: var(--dark);
           color: var(--text);
@@ -350,14 +354,14 @@ export default function LandingPage() {
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          background: radial-gradient(ellipse 80% 60% at 50% 30%, #1e1005 0%, #080604 70%);
+          background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(42, 195, 24, 0.06) 0%, #000000 70%);
         }
 
         .hero-bg {
           position: absolute;
           inset: 0;
-          background: radial-gradient(ellipse 40% 40% at 20% 80%, rgba(139, 26, 26, 0.15) 0%, transparent 70%),
-            radial-gradient(ellipse 30% 50% at 80% 20%, rgba(201, 168, 76, 0.08) 0%, transparent 60%);
+          background: radial-gradient(ellipse 40% 40% at 20% 80%, rgba(42, 195, 24, 0.05) 0%, transparent 70%),
+            radial-gradient(ellipse 30% 50% at 80% 20%, rgba(42, 195, 24, 0.035) 0%, transparent 60%);
         }
 
         .particles {
@@ -369,7 +373,7 @@ export default function LandingPage() {
 
         .particle {
           position: absolute;
-          background: var(--gold);
+          background: rgba(42, 195, 24, 0.18);
           border-radius: 50%;
           animation: drift linear infinite;
         }
@@ -395,8 +399,8 @@ export default function LandingPage() {
           position: absolute;
           width: 600px;
           height: 600px;
-          background: linear-gradient(135deg, rgba(201, 168, 76, 0.04) 0%, transparent 60%);
-          border: 1px solid rgba(201, 168, 76, 0.08);
+          background: linear-gradient(135deg, rgba(42, 195, 24, 0.03) 0%, transparent 60%);
+          border: 1px solid rgba(0, 0, 0, 0.06);
           transform: rotate(45deg);
           top: 50%;
           left: 50%;
@@ -441,10 +445,7 @@ export default function LandingPage() {
           font-weight: 900;
           line-height: 0.9;
           letter-spacing: -0.02em;
-          color: transparent;
-          background: linear-gradient(160deg, #f0d080 0%, #c9a84c 40%, #7a5e1e 70%, #c9a84c 100%);
-          -webkit-background-clip: text;
-          background-clip: text;
+          color: var(--text);
           position: relative;
           margin-bottom: 0.2em;
         }
@@ -453,7 +454,7 @@ export default function LandingPage() {
           font-family: ${cinzel.style.fontFamily};
           font-size: clamp(0.7rem, 2vw, 1rem);
           letter-spacing: 0.35em;
-          color: var(--gold-dim);
+          color: var(--dim);
           text-transform: uppercase;
           margin-bottom: 2.5rem;
         }
@@ -562,9 +563,9 @@ export default function LandingPage() {
 
         .how-section {
           padding: 7rem 2rem;
-          background: linear-gradient(to bottom, transparent, rgba(201, 168, 76, 0.03) 50%, transparent);
-          border-top: 1px solid rgba(201, 168, 76, 0.07);
-          border-bottom: 1px solid rgba(201, 168, 76, 0.07);
+          background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.02) 50%, transparent);
+          border-top: 1px solid rgba(0, 0, 0, 0.06);
+          border-bottom: 1px solid rgba(0, 0, 0, 0.06);
         }
 
         .how-inner {
@@ -582,12 +583,12 @@ export default function LandingPage() {
         .step {
           position: relative;
           padding-left: 1.5rem;
-          border-left: 1px solid rgba(201, 168, 76, 0.2);
+          border-left: 1px solid rgba(0, 0, 0, 0.08);
           transition: border-color 0.3s;
         }
 
         .step:hover {
-          border-left-color: var(--gold);
+          border-left-color: rgba(42, 195, 24, 0.4);
         }
 
         .step-num {
@@ -595,7 +596,7 @@ export default function LandingPage() {
           font-size: 3rem;
           font-weight: 900;
           color: transparent;
-          background: linear-gradient(135deg, var(--gold-dim), var(--gold));
+          background: linear-gradient(135deg, rgba(0, 0, 0, 0.4), rgba(42, 195, 24, 0.6));
           -webkit-background-clip: text;
           background-clip: text;
           line-height: 1;
@@ -639,8 +640,8 @@ export default function LandingPage() {
         .card {
           position: relative;
           padding: 2.5rem;
-          background: rgba(201, 168, 76, 0.03);
-          border: 1px solid rgba(201, 168, 76, 0.15);
+          background: rgba(0, 0, 0, 0.55);
+          border: 1px solid rgba(255, 255, 255, 0.12);
           overflow: hidden;
           transition: all 0.4s ease;
         }
@@ -649,7 +650,7 @@ export default function LandingPage() {
           content: '';
           position: absolute;
           inset: 0;
-          background: linear-gradient(135deg, rgba(201, 168, 76, 0.05) 0%, transparent 60%);
+          background: linear-gradient(135deg, rgba(42, 195, 24, 0.05) 0%, transparent 60%);
           opacity: 0;
           transition: opacity 0.4s;
         }
@@ -659,14 +660,14 @@ export default function LandingPage() {
         }
 
         .card:hover {
-          border-color: rgba(201, 168, 76, 0.5);
+          border-color: rgba(42, 195, 24, 0.35);
           transform: translateY(-4px);
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(201, 168, 76, 0.08);
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18), 0 0 30px rgba(42, 195, 24, 0.08);
         }
 
         .card.featured {
-          border-color: rgba(201, 168, 76, 0.4);
-          background: rgba(201, 168, 76, 0.06);
+          border-color: rgba(42, 195, 24, 0.28);
+          background: rgba(0, 0, 0, 0.65);
         }
 
         .card.featured::after {
@@ -677,8 +678,8 @@ export default function LandingPage() {
           font-family: ${cinzel.style.fontFamily};
           font-size: 0.55rem;
           letter-spacing: 0.3em;
-          color: var(--dark);
-          background: var(--gold);
+          color: #0C0C0C;
+          background: rgba(42, 195, 24, 0.16);
           padding: 0.3rem 2rem;
           transform: rotate(45deg) translateX(10px);
         }
@@ -753,13 +754,14 @@ export default function LandingPage() {
         }
 
         .btn-gold {
-          background: linear-gradient(135deg, #c9a84c 0%, #f0d080 50%, #c9a84c 100%);
-          color: var(--dark);
-          box-shadow: 0 4px 20px rgba(201, 168, 76, 0.3);
+          background: rgba(0, 0, 0, 0.35);
+          color: var(--text);
+          border: 1px solid rgba(42, 195, 24, 0.35);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
         }
 
         .btn-gold:hover {
-          box-shadow: 0 8px 40px rgba(201, 168, 76, 0.5);
+          box-shadow: 0 10px 45px rgba(0, 0, 0, 0.16), 0 0 18px rgba(42, 195, 24, 0.12);
           transform: translateY(-2px);
           filter: brightness(1.1);
         }
@@ -779,14 +781,14 @@ export default function LandingPage() {
 
         .btn-outline {
           background: transparent;
-          color: var(--gold);
-          border: 1px solid rgba(201, 168, 76, 0.4);
+          color: var(--text);
+          border: 1px solid rgba(255, 255, 255, 0.16);
         }
 
         .btn-outline:hover {
-          border-color: var(--gold);
-          background: rgba(201, 168, 76, 0.06);
-          box-shadow: 0 0 20px rgba(201, 168, 76, 0.1);
+          border-color: rgba(42, 195, 24, 0.35);
+          background: rgba(42, 195, 24, 0.04);
+          box-shadow: 0 0 20px rgba(0, 0, 0, 0.06);
         }
 
         .btn-full {
@@ -796,9 +798,9 @@ export default function LandingPage() {
 
         .quote-section {
           padding: 6rem 2rem;
-          background: rgba(139, 26, 26, 0.05);
-          border-top: 1px solid rgba(139, 26, 26, 0.15);
-          border-bottom: 1px solid rgba(139, 26, 26, 0.15);
+          background: rgba(0, 0, 0, 0.35);
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
           text-align: center;
         }
 
@@ -850,7 +852,7 @@ export default function LandingPage() {
           font-family: ${cinzelDecorative.style.fontFamily};
           font-size: 20vw;
           font-weight: 900;
-          color: rgba(201, 168, 76, 0.03);
+          color: rgba(42, 195, 24, 0.03);
           top: 50%;
           left: 50%;
           translate: -50% -50%;
@@ -893,7 +895,7 @@ export default function LandingPage() {
 
         footer {
           padding: 3rem 2rem;
-          border-top: 1px solid rgba(201, 168, 76, 0.1);
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -939,8 +941,8 @@ export default function LandingPage() {
         }
 
         .announce {
-          background: linear-gradient(90deg, var(--dark) 0%, rgba(201, 168, 76, 0.12) 50%, var(--dark) 100%);
-          border-bottom: 1px solid rgba(201, 168, 76, 0.15);
+          background: linear-gradient(90deg, var(--dark) 0%, rgba(42, 195, 24, 0.07) 50%, var(--dark) 100%);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
           padding: 0.75rem;
           text-align: center;
           font-family: ${cinzel.style.fontFamily};
@@ -977,7 +979,7 @@ export default function LandingPage() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          background: linear-gradient(to bottom, rgba(8, 6, 4, 0.9), transparent);
+          background: linear-gradient(to bottom, rgba(0, 0, 0, 0.86), transparent);
           backdrop-filter: blur(4px);
         }
 

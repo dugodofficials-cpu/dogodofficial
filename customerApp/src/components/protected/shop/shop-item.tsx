@@ -28,32 +28,33 @@ export default function ShopItem() {
   const { mutate: addToCart, isPending } = useAddToCart();
   const { data: cart } = useCart();
   const [isImageOpen, setIsImageOpen] = useState(false);
-  const isPhysical = product?.data.type === ProductType.PHYSICAL;
+  const isEbook = product?.data.type === ProductType.EBOOK;
 
-  const isInCart = cart?.data.items.find((item) => {
-    if (item.product._id !== product?.data._id) return false;
-    if (!isPhysical) return true;
-    return (
+  const isInCart = cart?.data.items.find(
+    (item) =>
+      item.product._id === product?.data._id &&
       item.selectedOptions?.size === size &&
       item.selectedOptions?.color === product?.data?.color &&
       item.quantity === quantity
-    );
-  });
+  );
+
+  const isInCartEbook = !!cart?.data.items.find(
+    (item) => item.product._id === productId && item.quantity === quantity
+  );
 
   function handleBuyNow() {
-    if (isPhysical) {
+    if (product?.data.type === ProductType.PHYSICAL) {
       if ((!size && product?.data.sizes.length) || !size) {
         enqueueSnackbar('Please select a size', { variant: 'error' });
         return;
       }
     }
-
     const item: Item = {
       product: productId,
-      quantity: isPhysical ? quantity : 1,
+      quantity,
     };
 
-    if (isPhysical) {
+    if (!isEbook) {
       item.selectedOptions = { size: size || '', color: product?.data.color || '' };
     }
 
@@ -290,7 +291,7 @@ export default function ShopItem() {
                   </Typography>
                 </Box>
 
-                {isPhysical ? (
+                {isEbook ? null : (
                   <Box
                     sx={{
                       display: 'flex',
@@ -351,7 +352,7 @@ export default function ShopItem() {
                       </Typography>
                     </Box>
                   </Box>
-                ) : null}
+                )}
                 <Box
                   sx={{
                     display: 'flex',
@@ -382,7 +383,13 @@ export default function ShopItem() {
                       },
                     }}
                   >
-                    {isInCart ? (isPending ? 'Adding to Cart...' : 'Added to Cart') : 'BUY NOW'}
+                    {isInCart
+                      ? isPending
+                        ? 'Adding to Cart...'
+                        : 'Added to Cart'
+                      : isEbook && isInCartEbook
+                        ? 'Added to Cart'
+                        : 'BUY NOW'}
                   </RoundedButton>
                   {!!isInCart && (
                     <RoundedButton

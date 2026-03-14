@@ -1,6 +1,6 @@
 'use client';
 
-import { useRoles, useUsers } from '@/hooks/users';
+import { useRoles, useUsers, useDeleteUser } from '@/hooks/users';
 import { User } from '@/lib/api/users';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import SearchIcon from '@mui/icons-material/Search';
@@ -9,6 +9,11 @@ import {
   Button,
   ButtonGroup,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   InputAdornment,
   Menu,
   MenuItem,
@@ -105,8 +110,10 @@ export function UserList() {
   );
   const [rolesModalOpen, setRolesModalOpen] = useState(false);
   const [assignRoleModalOpen, setAssignRoleModalOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { data: rolesData } = useRoles();
+  const { mutate: deleteUser, isPending: isDeleting } = useDeleteUser();
   const roles = rolesData?.data ?? [];
 
   const handleSort = (field: SortField) => {
@@ -167,15 +174,21 @@ export function UserList() {
   });
 
   const handleAction = (action: string, userId: string) => {
+    const user = users.find((u: User) => u._id === userId);
     switch (action) {
       case 'view':
         router.push(`/users/${userId}`);
         break;
       case 'assign role':
-        const user = users.find((u) => u._id === userId);
         if (user) {
           setSelectedUser(user);
           setAssignRoleModalOpen(true);
+        }
+        break;
+      case 'delete':
+        if (user) {
+          setSelectedUser(user);
+          setDeleteDialogOpen(true);
         }
         break;
       case 'suspend':
@@ -184,6 +197,17 @@ export function UserList() {
         break;
       default:
         break;
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (selectedUser) {
+      deleteUser(selectedUser._id, {
+        onSuccess: () => {
+          setDeleteDialogOpen(false);
+          setSelectedUser(null);
+        },
+      });
     }
   };
 
@@ -546,6 +570,18 @@ export function UserList() {
                       >
                         Assign Role
                       </Button>
+                      <Button
+                        variant="contained"
+                        onClick={() => handleAction('delete', user._id)}
+                        sx={{
+                          bgcolor: '#ef4444',
+                          '&:hover': { bgcolor: '#dc2626' },
+                          fontSize: '12px',
+                          px: 1,
+                        }}
+                      >
+                        Delete
+                      </Button>
                     </ButtonGroup>
                   </TableCell>
                 </TableRow>
@@ -591,6 +627,43 @@ export function UserList() {
         onClose={() => setAssignRoleModalOpen(false)}
         user={selectedUser}
       />
+
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => !isDeleting && setDeleteDialogOpen(false)}
+      >
+        <DialogTitle>Delete User</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete user{' '}
+            <strong>
+              {selectedUser?.firstName} {selectedUser?.lastName}
+            </strong>
+            ? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            onClick={() => setDeleteDialogOpen(false)}
+            disabled={isDeleting}
+            variant="outlined"
+            sx={{ color: '#6B7280', borderColor: '#E5E7EB' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            disabled={isDeleting}
+            variant="contained"
+            sx={{
+              bgcolor: '#ef4444',
+              '&:hover': { bgcolor: '#dc2626' },
+            }}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete User'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
