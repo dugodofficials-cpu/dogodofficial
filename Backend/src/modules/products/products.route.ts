@@ -58,7 +58,6 @@ class ProductsRoute implements Routes {
     );
     this.router.get(
       `${this.path}/:productId/preview`,
-      authMiddleware,
       this.productsController.previewMedia
     );
     this.router.put(`${this.path}/:id`, authMiddleware, validationMiddleware(UpdateProductDto, 'body', true), this.productsController.updateProduct);

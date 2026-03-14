@@ -424,7 +424,7 @@ class ProductsController {
     }
   };
 
-  public previewMedia = async (req: RequestWithUser, res: Response, next: NextFunction): Promise<void> => {
+  public previewMedia = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const productId = req.params.productId;
       const product = await this.productService.findProductById(productId);
