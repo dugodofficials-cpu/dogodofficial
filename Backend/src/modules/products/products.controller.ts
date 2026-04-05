@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { CreateProductDto, UpdateProductDto, GetProductsQueryDto, GetDigitalProductsByAlbumsQueryDto, UpdateDigitalDeliveryInfoDto, UpdateEbookDeliveryInfoDto } from '@/modules/products/products.dto';
-import { Product, ProductType } from '@/modules/products/products.interface';
+import { Product, ProductStatus, ProductType } from '@/modules/products/products.interface';
 import ProductService from '@/modules/products/products.service';
 import { RequestWithUser } from '../auth/auth.interface';
 import s3PublicService from '@/utils/s3Public';
@@ -10,9 +10,11 @@ import { cleanupTempFiles } from '@/middlewares/upload.middleware';
 import EmailService from '@/modules/email/email.service';
 import jobsService from '@/modules/jobs/jobs.service';
 import { JobType } from '@/modules/jobs/jobs.interface';
+import { AlbumCoverModel } from '@/modules/album-covers/album-covers.model';
 class ProductsController {
   public productService = new ProductService();
   private emailService = new EmailService();
+  private readonly skuFallbackPrefix = 'ALBUM';
   public getProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const query: GetProductsQueryDto = req.query;
@@ -297,6 +299,152 @@ class ProductsController {
       next(error);
     }
   };
+
+  public bulkUploadAlbumTracks = async (req: RequestWithUser, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const allFiles = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      const audioFiles = (allFiles?.audios || []).filter(file => file.mimetype.startsWith('audio/'));
+
+      if (!audioFiles.length) {
+        throw new HttpException(400, 'No audio files uploaded. Use the "audios" field with one or more tracks.');
+      }
+
+      const albumId = (req.body?.albumId || '').toString().trim();
+      if (!albumId) {
+        throw new HttpException(400, 'albumId is required');
+      }
+
+      const albumCover = await AlbumCoverModel.findById(albumId);
+      if (!albumCover) {
+        throw new HttpException(404, 'Album cover not found for the provided albumId');
+      }
+
+      const categories = this.parseCsvField(req.body?.categories);
+      if (!categories.length) {
+        throw new HttpException(400, 'At least one category is required');
+      }
+
+      const tags = this.parseCsvField(req.body?.tags);
+      const price = Number(req.body?.price);
+      if (!Number.isFinite(price) || price < 0) {
+        throw new HttpException(400, 'price must be a valid non-negative number');
+      }
+
+      const albumPriceRaw = req.body?.albumPrice;
+      const albumPrice = albumPriceRaw === undefined || albumPriceRaw === ''
+        ? price
+        : Number(albumPriceRaw);
+      if (!Number.isFinite(albumPrice) || albumPrice < 0) {
+        throw new HttpException(400, 'albumPrice must be a valid non-negative number');
+      }
+
+      const startOrder = Number(req.body?.startOrder ?? 1);
+      const initialOrder = Number.isFinite(startOrder) ? Math.max(0, Math.floor(startOrder)) : 1;
+
+      const statusRaw = (req.body?.status || ProductStatus.DRAFT).toString().toUpperCase();
+      const status = Object.values(ProductStatus).includes(statusRaw as ProductStatus)
+        ? (statusRaw as ProductStatus)
+        : ProductStatus.DRAFT;
+
+      const isActive = this.parseBooleanField(req.body?.isActive, true);
+      const duration = (req.body?.duration || '').toString().trim();
+      const durationsByFile = this.parseDurationMap(req.body?.durationsByFile);
+      const descriptionTemplate = (req.body?.description || '').toString().trim();
+      const skuPrefix = this.buildSkuPrefix(req.body?.skuPrefix?.toString(), albumCover.title);
+
+      const sortedFiles = [...audioFiles].sort((a, b) => {
+        const aPath = a.originalname || a.filename;
+        const bPath = b.originalname || b.filename;
+        return aPath.localeCompare(bPath, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
+      const created: Array<{ id: string; name: string; sku: string; order: number }> = [];
+      const failed: Array<{ fileName: string; reason: string }> = [];
+
+      for (const [index, file] of sortedFiles.entries()) {
+        const trackName = this.extractTrackName(file.originalname || file.filename);
+        const uploadName = file.originalname || file.filename;
+        const order = initialOrder + index;
+        const trackDuration =
+          durationsByFile[uploadName] ||
+          durationsByFile[this.getBaseName(uploadName)] ||
+          duration;
+
+        try {
+          const skuBase = `${skuPrefix}-${String(order).padStart(3, '0')}`;
+          const sku = await this.ensureUniqueSku(skuBase);
+
+          const productData: CreateProductDto = {
+            name: trackName,
+            order,
+            album: albumCover.title || 'Unknown Album',
+            albumPrice,
+            duration: trackDuration,
+            description: descriptionTemplate || `Track from ${albumCover.title || 'album'}`,
+            sku,
+            price,
+            type: ProductType.DIGITAL,
+            status,
+            categories,
+            tags,
+            images: albumCover.imageUrl ? [albumCover.imageUrl] : [],
+            color: '',
+            albumId: albumCover.id,
+            isActive,
+          };
+
+          const createdProduct = await this.productService.createProduct(productData);
+          const folder = `products/${createdProduct._id}/media`;
+          const { key } = await s3Service.uploadFile(file, folder);
+
+          const updateData: UpdateDigitalDeliveryInfoDto = {
+            digitalDeliveryInfo: {
+              ...createdProduct.digitalDeliveryInfo,
+              downloadUrl: key,
+            },
+          };
+
+          const updatedProduct = await this.productService.updateDigitalDeliveryInfo(createdProduct._id.toString(), updateData);
+          if (!updatedProduct.previewUrl) {
+            await this.productService.updateProduct(updatedProduct._id.toString(), { previewUrl: key } as UpdateProductDto);
+          }
+
+          created.push({
+            id: createdProduct._id.toString(),
+            name: createdProduct.name,
+            sku: createdProduct.sku,
+            order: createdProduct.order || order,
+          });
+        } catch (error) {
+          failed.push({
+            fileName: file.originalname,
+            reason: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+      }
+
+      res.status(201).json({
+        message: failed.length
+          ? `Uploaded ${created.length}/${sortedFiles.length} tracks.`
+          : `Uploaded ${created.length} tracks successfully.`,
+        data: {
+          albumId: albumCover.id,
+          albumTitle: albumCover.title,
+          totalReceived: sortedFiles.length,
+          createdCount: created.length,
+          failedCount: failed.length,
+          created,
+          failed,
+        },
+      });
+    } catch (error) {
+      next(error);
+    } finally {
+      cleanupTempFiles(req.files);
+      cleanupTempFiles(req.file);
+    }
+  };
+
   public uploadMedia = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.file && !req.files) {
@@ -453,5 +601,103 @@ class ProductsController {
       next(error);
     }
   };
+
+  private parseCsvField(value: unknown): string[] {
+    if (Array.isArray(value)) {
+      return value
+        .map(item => item?.toString().trim())
+        .filter(Boolean);
+    }
+
+    if (!value) return [];
+
+    return value
+      .toString()
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean);
+  }
+
+  private parseBooleanField(value: unknown, fallback: boolean): boolean {
+    if (value === undefined || value === null || value === '') return fallback;
+    if (typeof value === 'boolean') return value;
+    const normalized = value.toString().trim().toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+    return fallback;
+  }
+
+  private buildSkuPrefix(rawPrefix: string | undefined, albumTitle: string): string {
+    const source = (rawPrefix || albumTitle || this.skuFallbackPrefix).toString();
+    const normalized = source.replace(/[^a-zA-Z0-9]+/g, '').toUpperCase();
+    return normalized.slice(0, 16) || this.skuFallbackPrefix;
+  }
+
+  private extractTrackName(fileName: string): string {
+    const normalizedPath = fileName.replace(/\\/g, '/');
+    const baseName = normalizedPath.split('/').pop() || normalizedPath;
+    const withoutExtension = baseName.replace(/\.[^/.]+$/, '');
+    return withoutExtension
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim() || 'Untitled Track';
+  }
+
+  private getBaseName(fileName: string): string {
+    const normalizedPath = fileName.replace(/\\/g, '/');
+    return normalizedPath.split('/').pop() || normalizedPath;
+  }
+
+  private parseDurationMap(rawValue: unknown): Record<string, string> {
+    if (!rawValue || typeof rawValue !== 'string') return {};
+
+    try {
+      const parsed = JSON.parse(rawValue);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+
+      const durationMap: Record<string, string> = {};
+      for (const [rawKey, rawDuration] of Object.entries(parsed)) {
+        const key = (rawKey || '').toString().trim();
+        const normalizedDuration = this.normalizeDuration((rawDuration || '').toString());
+        if (!key || !normalizedDuration) continue;
+        durationMap[key] = normalizedDuration;
+      }
+      return durationMap;
+    } catch {
+      return {};
+    }
+  }
+
+  private normalizeDuration(rawDuration: string): string | null {
+    const duration = rawDuration.trim();
+    if (!duration) return null;
+
+    // Support mm:ss and hh:mm:ss formats.
+    if (!/^\d{1,2}:\d{2}(:\d{2})?$/.test(duration)) return null;
+
+    const segments = duration.split(':').map(Number);
+    if (segments.some(Number.isNaN)) return null;
+
+    if (segments.length === 2) {
+      const [minutes, seconds] = segments;
+      if (seconds > 59) return null;
+      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    const [hours, minutes, seconds] = segments;
+    if (minutes > 59 || seconds > 59) return null;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  private async ensureUniqueSku(baseSku: string): Promise<string> {
+    let candidate = baseSku.toUpperCase();
+    let attempt = 1;
+    while (true) {
+      const existing = await this.productService.products.findOne({ sku: candidate }).select('_id');
+      if (!existing) return candidate;
+      candidate = `${baseSku.toUpperCase()}-${attempt}`;
+      attempt += 1;
+    }
+  }
 }
 export default ProductsController;

@@ -46,6 +46,12 @@ class ProductsRoute implements Routes {
       this.productsController.createProduct
     );
     this.router.post(
+      `${this.path}/bulk-upload`,
+      [authMiddleware, hasPermission(Permission.UPLOAD_MEDIA)],
+      handleMulterUpload,
+      this.productsController.bulkUploadAlbumTracks
+    );
+    this.router.post(
       `${this.path}/:productId/upload-media`,
       [authMiddleware, hasPermission(Permission.UPLOAD_MEDIA)],
       handleMulterUpload,

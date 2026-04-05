@@ -44,6 +44,7 @@ const handleMulterUpload = (req, res, next) => {
   const uploadMiddleware = upload.fields([
     { name: 'audio', maxCount: 1 },
     { name: 'audioFile', maxCount: 1 },
+    { name: 'audios', maxCount: 500 },
     { name: 'image', maxCount: 1 },
     { name: 'images', maxCount: 1 },
     { name: 'imageFile', maxCount: 1 },
@@ -65,7 +66,7 @@ const handleMulterUpload = (req, res, next) => {
         return next(new HttpException(400, 'File is too large. Maximum size is 3GB'));
       }
       if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-        return next(new HttpException(400, 'Wrong field name. Use "audio", "audioFile", "image" or "imageFile"'));
+        return next(new HttpException(400, 'Wrong field name. Use "audio", "audioFile", "audios", "image" or "imageFile"'));
       }
       return next(new HttpException(400, `Upload error: ${err.message}`));
     } else if (err) {
@@ -73,7 +74,7 @@ const handleMulterUpload = (req, res, next) => {
       return next(new HttpException(400, err.message));
     }
     if (req.files) {
-      const file = req.files['audio']?.[0] || req.files['audioFile']?.[0] || req.files['image']?.[0] || req.files['imageFile']?.[0];
+      const file = req.files['audio']?.[0] || req.files['audioFile']?.[0] || req.files['audios']?.[0] || req.files['image']?.[0] || req.files['imageFile']?.[0];
       if (file) {
         req.file = file;
       }
