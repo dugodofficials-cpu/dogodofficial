@@ -105,7 +105,14 @@ export const useDownloadMedia = () => {
       };
       localStorage.setItem(`dugod_media_${params.id}`, JSON.stringify(mediaData));
       if (params.isDownloaded) {
-        window.open(data.data.url, '_blank');
+        // Create a temporary anchor element to trigger download
+        const link = document.createElement('a');
+        link.href = data.data.url;
+        link.download = params.productName || 'download';
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
 
       try {

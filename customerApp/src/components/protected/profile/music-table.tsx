@@ -55,11 +55,11 @@ export default function MusicTable({ userId }: { userId: string }) {
     };
   };
 
-  const handleDownload = (id: string) => {
+  const handleDownload = (id: string, productName?: string) => {
     if (id) {
       setDownloadingTracks((prev) => ({ ...prev, [id]: true }));
       downloadMedia(
-        { id, isDownloaded: true },
+        { id, isDownloaded: true, productName },
         {
           onSuccess: () => {
             setDownloadingTracks((prev) => ({ ...prev, [id]: false }));
@@ -154,7 +154,7 @@ export default function MusicTable({ userId }: { userId: string }) {
               >
                 <Box
                   component="button"
-                  onClick={() => handleDownload(item.id)}
+                  onClick={() => handleDownload(item.id, item.name)}
                   sx={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -250,7 +250,7 @@ export default function MusicTable({ userId }: { userId: string }) {
       >
         <Box
           component="button"
-          onClick={() => handleDownload(item.id)}
+          onClick={() => handleDownload(item.id, item.name)}
           sx={{
             display: 'inline-flex',
             alignItems: 'center',
