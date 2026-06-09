@@ -80,5 +80,18 @@ class UsersController {
       next(error);
     }
   };
+  public uploadProfilePicture = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId: string = req.params.id;
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+      const updateUserData: User = await this.userService.updateUser(userId, { picture: file.path });
+      res.status(200).json({ data: updateUserData, message: 'Profile picture updated' });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 export default UsersController;

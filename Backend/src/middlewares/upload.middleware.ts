@@ -52,6 +52,7 @@ const handleMulterUpload = (req, res, next) => {
     { name: 'downloadFile', maxCount: 1 },
     { name: 'bookCoverArt', maxCount: 1 },
     { name: 'coverImage', maxCount: 1 },
+    { name: 'profilePicture', maxCount: 1 },
   ]);
   uploadMiddleware(req, res, (err) => {
     console.error('[UPLOAD DEBUG] Multer callback invoked', {
@@ -74,7 +75,7 @@ const handleMulterUpload = (req, res, next) => {
       return next(new HttpException(400, err.message));
     }
     if (req.files) {
-      const file = req.files['audio']?.[0] || req.files['audioFile']?.[0] || req.files['audios']?.[0] || req.files['image']?.[0] || req.files['imageFile']?.[0];
+      const file = req.files['audio']?.[0] || req.files['audioFile']?.[0] || req.files['audios']?.[0] || req.files['image']?.[0] || req.files['imageFile']?.[0] || req.files['profilePicture']?.[0];
       if (file) {
         req.file = file;
       }

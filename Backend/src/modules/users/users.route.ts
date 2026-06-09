@@ -3,6 +3,7 @@ import UsersController from '@/modules/users/users.controller';
 import { CreateUserDto, GetUsersQueryDto } from '@/modules/users/users.dto';
 import { Routes } from '@interfaces/routes.interface';
 import validationMiddleware from '@middlewares/validation.middleware';
+import handleMulterUpload from '@middlewares/upload.middleware';
 class UsersRoute implements Routes {
   public path = '/users';
   public router = Router();
@@ -17,6 +18,7 @@ class UsersRoute implements Routes {
     this.router.post(`${this.path}`, validationMiddleware(CreateUserDto, 'body'), this.usersController.createUser);
     this.router.put(`${this.path}/:id`, validationMiddleware(CreateUserDto, 'body', true), this.usersController.updateUser);
     this.router.delete(`${this.path}/:id`, this.usersController.deleteUser);
+    this.router.post(`${this.path}/:id/profile-picture`, handleMulterUpload, this.usersController.uploadProfilePicture);
   }
 }
 export default UsersRoute;
