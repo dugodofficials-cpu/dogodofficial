@@ -76,3 +76,11 @@ ssh_config*
 Cred.txt
 DBbackup*
 *.zip
+
+# Project-local secret/env files
+Backend/.env.development
+customerApp/.env.production
+taskdef.sync.json
+
+# Local operational backups (contain infra/env snapshots)
+scripts/ops/backups/

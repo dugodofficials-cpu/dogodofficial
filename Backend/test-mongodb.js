@@ -1,9 +1,14 @@
 const mongoose = require('mongoose');
+require('dotenv').config({ path: '.env.development' });
 
-const uri = 'mongodb+srv://dugod-admin:K98J6izsxwhzKJ22@cluster-dugod.2nybyvj.mongodb.net/dugod?appName=Cluster-dugod';
+const uri = process.env.MONGODB_URI;
 
 async function testMongoDB() {
   try {
+    if (!uri) {
+      throw new Error('MONGODB_URI is not set');
+    }
+
     console.log('🔄 Connecting to MongoDB...');
     await mongoose.connect(uri);
     
