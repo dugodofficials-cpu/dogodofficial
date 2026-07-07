@@ -6,10 +6,10 @@ import Image from 'next/image';
 import NextLink from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import icon from '/assets/hourglass.svg';
-import lockIcon from '/assets/lock.svg';
-import bgImageMobile from '/assets/startbg-sm.svg';
-import bgImage from '/assets/startbg.svg';
+import icon from '../../../public/assets/hourglass.svg';
+import lockIcon from '../../../public/assets/lock.svg';
+import bgImageMobile from '../../../public/assets/startbg-sm.svg';
+import bgImage from '../../../public/assets/startbg.svg';
 import { useCountdown } from '@/hooks/user';
 import { useAuth } from '@/hooks/use-auth';
 
