@@ -3,12 +3,19 @@ import { HttpException } from '@exceptions/HttpException';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-const uploadDir = path.join(os.tmpdir(), 'dugod-uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-const upload = multer({
-  storage: multer.diskStorage({
+
+const IS_SERVERLESS = process.env.VERCEL === '1' || process.env.VERCEL_ENV !== undefined;
+
+let storage: multer.StorageEngine;
+
+if (IS_SERVERLESS) {
+  storage = multer.memoryStorage();
+} else {
+  const uploadDir = path.join(os.tmpdir(), 'dugod-uploads');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  storage = multer.diskStorage({
     destination: (req, file, cb) => {
       cb(null, uploadDir);
     },
@@ -16,7 +23,11 @@ const upload = multer({
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
       cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
     },
-  }),
+  });
+}
+
+const upload = multer({
+  storage,
   limits: {
     fileSize: 3 * 1024 * 1024 * 1024,
   },

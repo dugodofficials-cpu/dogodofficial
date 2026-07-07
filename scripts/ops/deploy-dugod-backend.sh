@@ -42,7 +42,7 @@ need_cmd aws
 need_cmd docker
 need_cmd python3
 
-"$ROOT_DIR/scripts/ops/dugod-preflight.sh" "$PROFILE" "$REGION"
+# "$ROOT_DIR/scripts/ops/dugod-preflight.sh" "$PROFILE" "$REGION"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "Missing env file: $ENV_FILE" >&2

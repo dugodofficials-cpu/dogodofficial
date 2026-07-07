@@ -17,9 +17,7 @@ import BlackboxRoute from '@/modules/blackbox/blackbox.route';
 import CountdownRoute from '@/modules/countdown/countdown.route';
 import validateEnv from '@utils/validateEnv';
 import ShippingRoute from '@/modules/shipping/shipping.route';
-import jobProcessorService from '@/services/jobProcessor.service';
 validateEnv();
-jobProcessorService.start();
 const app = new App([
   new IndexRoute(),
   new UsersRoute(),

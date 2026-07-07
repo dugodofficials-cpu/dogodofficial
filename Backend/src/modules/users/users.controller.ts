@@ -2,6 +2,8 @@ import { NextFunction, Request, Response } from 'express';
 import { CreateUserDto } from '@/modules/users/users.dto';
 import { User, UserQueryParams, PaginatedUsersResponse } from '@/modules/users/users.interface';
 import userService from '@/modules/users/users.service';
+import s3PublicService from '@/utils/s3Public';
+import { cleanupTempFiles } from '@/middlewares/upload.middleware';
 class UsersController {
   public userService = new userService();
   public getUserStatistics = async (req: Request, res: Response, next: NextFunction) => {
@@ -87,9 +89,14 @@ class UsersController {
       if (!file) {
         return res.status(400).json({ message: 'No file uploaded' });
       }
-      const updateUserData: User = await this.userService.updateUser(userId, { picture: file.path });
+
+      const { url } = await s3PublicService.uploadPublicFile(file, `users/${userId}/profile-picture`);
+      const updateUserData: User = await this.userService.updateUser(userId, { picture: url });
+
+      cleanupTempFiles(file);
       res.status(200).json({ data: updateUserData, message: 'Profile picture updated' });
     } catch (error) {
+      if (req.file) cleanupTempFiles(req.file);
       next(error);
     }
   };

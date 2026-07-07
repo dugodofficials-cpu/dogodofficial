@@ -98,7 +98,7 @@ class UserService {
     const populatedUser = await this.users.findById(createUserData._id).populate('role').populate('totalOrdersCount').populate('userRoles');
     return populatedUser;
   }
-  public async updateUser(userId: string, userData: CreateUserDto): Promise<User> {
+  public async updateUser(userId: string, userData: Partial<CreateUserDto>): Promise<User> {
     if (isEmpty(userData)) throw new HttpException(400, 'userData is empty');
     if (userData.email) {
       const findUser = await this.users.findOne({ email: userData.email });

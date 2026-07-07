@@ -4,6 +4,7 @@ import { Product, ProductType, ProductStatus } from '@/modules/products/products
 import productModel from '@/modules/products/products.model';
 import orderModel from '@/modules/orders/orders.model';
 import { OrderStatus } from '@/modules/orders/orders.interface';
+import { PaymentStatus } from '@/modules/payments/payments.interface';
 import { isEmpty } from '@utils/util';
 import { GetProductsQueryDto, GetDigitalProductsByAlbumsQueryDto } from './products.dto';
 import { logger } from '@/utils/logger';
@@ -400,8 +401,13 @@ class ProductService {
     const order = await orderModel.findOne({
       user: userId,
       'items.product': productId,
-      status: { $nin: [OrderStatus.CANCELLED, OrderStatus.PENDING] }
+      status: { $nin: [OrderStatus.CANCELLED, OrderStatus.DELETED] },
+      $or: [
+        { status: { $ne: OrderStatus.PENDING } },
+        { paymentStatus: PaymentStatus.COMPLETED },
+      ],
     });
+
     return !!order;
   }
   public async updateDigitalDeliveryInfo(productId: string, updateData: UpdateDigitalDeliveryInfoDto): Promise<Product> {

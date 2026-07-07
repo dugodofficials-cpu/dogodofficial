@@ -5,6 +5,9 @@
   "description": "Dugod API",
   "license": "ISC",
   "author": "Dugod",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "_moduleAliases": {
     "@": "dist",
     "@config": "dist/config",
@@ -27,8 +30,7 @@
     "test": "jest --forceExit --detectOpenHandles",
     "lint": "eslint --ignore-path .gitignore --ext .ts src/",
     "lint:fix": "npm run lint -- --fix",
-    "deploy:prod": "npm run build && pm2 stop prod || true && pm2 delete prod || true && pm2 start ecosystem.config.js --only prod && pm2 save",
-    "deploy:dev": "pm2 start ecosystem.config.js --only dev",
+    "deploy:vercel": "vercel --prod",
     "setup:order-templates": "node scripts/setup-order-templates.js",
     "verify:domain": "node scripts/verify-domain.js",
     "test:money": "node test-money-formatting.js",
@@ -38,6 +40,7 @@
     "@aws-sdk/client-s3": "^3.844.0",
     "@aws-sdk/lib-storage": "^3.948.0",
     "@aws-sdk/s3-request-presigner": "^3.844.0",
+    "@vercel/node": "^3.2.29",
     "axios": "^1.10.0",
     "bcrypt": "^5.0.1",
     "class-transformer": "^0.5.1",
@@ -98,7 +101,6 @@
     "node-config": "^0.0.2",
     "node-gyp": "^9.1.0",
     "nodemon": "^2.0.19",
-    "pm2": "^5.2.0",
     "prettier": "^2.7.1",
     "supertest": "^6.2.4",
     "ts-jest": "^28.0.7",

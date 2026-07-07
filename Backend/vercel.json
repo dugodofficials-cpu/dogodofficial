@@ -1,0 +1,25 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "dist/api/index.js": {
+      "memory": 1024,
+      "maxDuration": 30,
+      "runtime": "nodejs20.x"
+    },
+    "dist/api/cron/process-jobs.js": {
+      "memory": 512,
+      "maxDuration": 30,
+      "runtime": "nodejs20.x"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
+  ]
+}
