@@ -3,11 +3,12 @@ import { join } from 'path';
 import winston from 'winston';
 import winstonDaily from 'winston-daily-rotate-file';
 import { LOG_DIR } from '@backend/config';
-const logDir: string = LOG_DIR || 'logs';
-const logPath: string = join(process.cwd(), logDir);
-if (!existsSync(logPath)) {
-  mkdirSync(logPath, { recursive: true });
-}
+
+// Vercel's deployment bundle is read-only outside of /tmp, so file logging
+// is skipped there — Vercel already captures stdout/stderr into its own
+// function logs, which the console transport below covers.
+const IS_SERVERLESS = process.env.VERCEL === '1' || process.env.VERCEL_ENV !== undefined;
+
 const logFormat = winston.format.printf(({ timestamp, level, message }) => `${timestamp} ${level}: ${message}`);
 const logger = winston.createLogger({
   format: winston.format.combine(
@@ -16,7 +17,16 @@ const logger = winston.createLogger({
     }),
     logFormat,
   ),
-  transports: [
+  transports: [],
+});
+
+if (!IS_SERVERLESS) {
+  const logDir: string = LOG_DIR || 'logs';
+  const logPath: string = join(process.cwd(), logDir);
+  if (!existsSync(logPath)) {
+    mkdirSync(logPath, { recursive: true });
+  }
+  logger.add(
     new winstonDaily({
       level: 'error',
       datePattern: 'YYYY-MM-DD',
@@ -27,8 +37,9 @@ const logger = winston.createLogger({
       json: false,
       zippedArchive: false,
     }),
-  ],
-});
+  );
+}
+
 logger.add(
   new winston.transports.Console({
     format: winston.format.combine(winston.format.splat(), winston.format.colorize()),
