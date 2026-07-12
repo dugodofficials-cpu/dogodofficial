@@ -338,9 +338,11 @@ export const deleteAlbumCover = (id: string) => {
   });
 };
 
-export const updateAlbumCover = (id: string, data: Partial<AlbumCover>) => {
+export const updateAlbumCover = (id: string, data: Partial<AlbumCover> | FormData) => {
   return apiClient<AlbumCoverResponse>(`/album-cover/${id}`, {
     method: 'PUT',
+    headers:
+      data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
     body: data,
   });
 };

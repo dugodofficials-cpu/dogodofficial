@@ -195,7 +195,7 @@ export const useDeleteAlbumCover = () => {
 
 export const useUpdateAlbumCover = () => {
   const queryClient = useQueryClient();
-  return useMutation<AlbumCoverResponse, Error, { id: string; data: Partial<AlbumCover> }>({
+  return useMutation<AlbumCoverResponse, Error, { id: string; data: Partial<AlbumCover> | FormData }>({
     mutationFn: ({ id, data }) => updateAlbumCover(id, data),
     onSuccess: () => {
       enqueueSnackbar('Album cover updated successfully', { variant: 'success' });

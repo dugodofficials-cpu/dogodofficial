@@ -34,7 +34,7 @@ import {
 import Link from 'next/link';
 import { enqueueSnackbar } from 'notistack';
 import { useDropzone } from 'react-dropzone';
-import { useState } from 'react';
+import { ChangeEvent, useState } from 'react';
 
 export default function AlbumCoversPage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
@@ -52,11 +52,13 @@ export default function AlbumCoversPage() {
     imageId: string | null;
     title: string;
     description: string;
+    file: File | null;
   }>({
     open: false,
     imageId: null,
     title: '',
     description: '',
+    file: null,
   });
 
   const { mutate: uploadAlbumCover, isPending: isUploading } =
@@ -136,6 +138,7 @@ export default function AlbumCoversPage() {
       imageId: id,
       title,
       description: description,
+      file: null,
     });
   };
 
@@ -145,22 +148,38 @@ export default function AlbumCoversPage() {
       imageId: null,
       title: '',
       description: '',
+      file: null,
     });
+  };
+
+  const handleEditFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setEditDialog((prev) => ({ ...prev, file }));
   };
 
   const handleEditSave = () => {
     if (editDialog.imageId && editDialog.title.trim()) {
+      const data: Partial<AlbumCover> | FormData = editDialog.file
+        ? (() => {
+            const formData = new FormData();
+            formData.append('image', editDialog.file as File);
+            formData.append('title', editDialog.title.trim());
+            formData.append('description', editDialog.description.trim());
+            return formData;
+          })()
+        : {
+            title: editDialog.title.trim(),
+            description: editDialog.description.trim(),
+          };
+
       updateAlbumCover(
         {
           id: editDialog.imageId,
-          data: {
-            title: editDialog.title.trim(),
-            description: editDialog.description.trim(),
-          },
+          data,
         },
         {
           onSuccess: () => {
-            enqueueSnackbar('Album cover title updated successfully', {
+            enqueueSnackbar('Album cover updated successfully', {
               variant: 'success',
             });
             setEditDialog({
@@ -168,10 +187,11 @@ export default function AlbumCoversPage() {
               imageId: null,
               title: '',
               description: '',
+              file: null,
             });
           },
           onError: () => {
-            enqueueSnackbar('Failed to update album cover title', {
+            enqueueSnackbar('Failed to update album cover', {
               variant: 'error',
             });
           },
@@ -390,7 +410,7 @@ export default function AlbumCoversPage() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle id="edit-dialog-title">Edit Album Cover Title</DialogTitle>
+        <DialogTitle id="edit-dialog-title">Edit Album Cover</DialogTitle>
         <DialogContent
           sx={{
             display: 'flex',
@@ -423,6 +443,20 @@ export default function AlbumCoversPage() {
             }
             disabled={isUpdatingAlbumCover}
           />
+          <Button
+            component="label"
+            variant="outlined"
+            startIcon={<CloudUploadIcon />}
+            disabled={isUpdatingAlbumCover}
+          >
+            {editDialog.file ? editDialog.file.name : 'Replace image'}
+            <input
+              type="file"
+              hidden
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              onChange={handleEditFileChange}
+            />
+          </Button>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleEditCancel} disabled={isUpdatingAlbumCover}>
