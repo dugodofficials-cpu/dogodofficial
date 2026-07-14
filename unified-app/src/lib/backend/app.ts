@@ -19,7 +19,6 @@ class App {
   public app: express.Application;
   public env: string;
   public port: string | number;
-  private dbConnected = false;
 
   constructor(routes: Routes[]) {
     this.app = express();
@@ -36,7 +35,7 @@ class App {
   }
 
   private async connectToDatabase() {
-    if (this.dbConnected || connection.readyState === 1) return;
+    if (connection.readyState === 1) return;
     try {
       if (this.env !== 'production') {
         set('debug', true);
@@ -44,7 +43,6 @@ class App {
       set('strictQuery', false);
       await connect(dbConnection.url);
       await connection.db.admin().command({ ping: 1 });
-      this.dbConnected = true;
       logger.info('Pinged your deployment. You successfully connected to MongoDB!');
     } catch (error) {
       logger.error('Failed to connect to MongoDB:', error);
@@ -53,6 +51,12 @@ class App {
 
   private initializeMiddlewares() {
     this.app.set('trust proxy', 1);
+    this.app.use(async (req, res, next) => {
+      if (connection.readyState !== 1) {
+        await this.connectToDatabase();
+      }
+      next();
+    });
     this.app.use(strictSecurity);
     this.app.use(morgan(LOG_FORMAT || 'dev', { stream }));
     const allowedOrigins = ORIGIN ? ORIGIN.split(',').map(origin => origin.trim()).filter(Boolean) : [];
