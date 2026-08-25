@@ -30,8 +30,19 @@ class EmailService {
   private zeptoClient: any;
   private resendClient: any;
   constructor() {
+    // The zeptomail SDK builds its request URL as `host + "v1.1/email"` with
+    // no separator in between, so a host without a trailing slash (e.g. the
+    // exact value in .env.production/.env.local, "https://api.zeptomail.com")
+    // silently produces "https://api.zeptomail.comv1.1/email" — a
+    // non-existent hostname. The fetch() then rejects with a network error,
+    // which the SDK's own error handler crashes on trying to call
+    // `.json()` on it, so the promise never settles: every real signup /
+    // password reset / order-confirmation email hung for ~2 minutes before
+    // timing out. Confirmed live by tracing the actual malformed URL and by
+    // signing up a real test account against the real ZeptoMail config.
+    const zeptoUrl = appConfig?.zepto?.url || 'https://api.zeptomail.com';
     this.zeptoClient = new SendMailClient({
-      url: appConfig?.zepto?.url || 'https://api.zeptomail.com',
+      url: zeptoUrl.endsWith('/') ? zeptoUrl : `${zeptoUrl}/`,
       token: appConfig?.zepto?.apiToken || '',
     });
     this.resendClient = appConfig?.resend?.apiKey ? new Resend(appConfig.resend.apiKey) : null;
@@ -125,16 +136,27 @@ class EmailService {
         throw new Error(`Unsupported email provider: ${provider}`);
       }
     } catch (error) {
-      logger.error(`Failed to send email via ${provider}: ${error.message}`);
+      // ZeptoMail's SDK rejects with the raw parsed API error body on a
+      // real API-level failure (e.g. { error: { message, details } }), not
+      // a JS Error — `error.message` is undefined for that shape, which
+      // previously logged every failure as the unhelpful "Unknown error
+      // occurred" no matter what actually went wrong (invalid token, domain
+      // not verified, credits exhausted, etc.).
+      const readableMessage =
+        error?.message ||
+        error?.error?.details?.[0]?.message ||
+        error?.error?.message ||
+        'Unknown error occurred';
+      logger.error(`Failed to send email via ${provider}: ${readableMessage}`);
       await emailModel.EmailLog.findByIdAndUpdate(
         emailLog._id,
         {
           status: 'failed',
-          errorMessage: error.message || 'Unknown error occurred',
+          errorMessage: readableMessage,
         },
         { new: true }
       );
-      throw new HttpException(500, `Failed to send email via ${provider}: ${error.message || 'Unknown error occurred'}`);
+      throw new HttpException(500, `Failed to send email via ${provider}: ${readableMessage}`);
     }
   }
   private async sendViaZepto(emailData: SendEmailRequest, emailLog: any): Promise<EmailLog> {

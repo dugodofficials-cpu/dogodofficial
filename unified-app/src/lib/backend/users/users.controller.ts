@@ -4,6 +4,7 @@ import { User, UserQueryParams, PaginatedUsersResponse } from '@backend/users/us
 import userService from '@backend/users/users.service';
 import s3PublicService from '@backend/utils/s3Public';
 import { cleanupTempFiles } from '@backend/middlewares/upload.middleware';
+import { RequestWithUser } from '@backend/interfaces/auth.interface';
 class UsersController {
   public userService = new userService();
   public getUserStatistics = async (req: Request, res: Response, next: NextFunction) => {
@@ -63,10 +64,17 @@ class UsersController {
       next(error);
     }
   };
-  public updateUser = async (req: Request, res: Response, next: NextFunction) => {
+  public updateUser = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const userId: string = req.params.id;
       const userData: CreateUserDto = req.body;
+      // selfOrPermission sets hasElevatedAccess=false when the caller is editing
+      // their own record without an admin permission — strip fields a plain user
+      // must never be able to set on themselves (role/status escalation).
+      if (!(req as any).hasElevatedAccess) {
+        delete (userData as Partial<CreateUserDto>).role;
+        delete (userData as Partial<CreateUserDto>).status;
+      }
       const updateUserData: User = await this.userService.updateUser(userId, userData);
       res.status(200).json({ data: updateUserData, message: 'updated' });
     } catch (error) {

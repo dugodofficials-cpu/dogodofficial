@@ -20,6 +20,11 @@ export default function Track() {
   const trackId = pathname.split('/')[4];
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const { data: albumProducts, isLoading } = useProductsByAlbum(albumId);
+  const [trackImageFailed, setTrackImageFailed] = useState(false);
+  const trackImageFallback = '/assets/product-placeholder.svg';
+  const trackImageSrc = trackImageFailed
+    ? trackImageFallback
+    : albumProducts?.data.find((product) => product._id === trackId)?.images[0] || trackImageFallback;
 
   const handleOpenPricingModal = () => {
     setIsPricingModalOpen(true);
@@ -255,10 +260,11 @@ export default function Track() {
             }}
           >
             <Image
-              src={albumProducts?.data.find((product) => product._id === trackId)?.images[0] || ''}
+              src={trackImageSrc}
               alt="album1"
               fill
               style={{ objectFit: 'cover' }}
+              onError={() => setTrackImageFailed(true)}
             />
           </Box>
           <PrimaryButton

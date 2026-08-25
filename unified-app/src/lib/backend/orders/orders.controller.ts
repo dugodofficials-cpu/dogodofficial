@@ -5,6 +5,10 @@ import OrderService from '@backend/orders/orders.service';
 import { RequestWithUser } from '@backend/interfaces/auth.interface';
 import { User } from '../users/users.interface';
 import { logger } from '@backend/utils/logger';
+import RoleService from '@backend/roles/roles.service';
+import { Permission } from '@backend/roles/roles.interface';
+import { HttpException } from '@backend/exceptions/HttpException';
+const roleService = new RoleService();
 class OrderController {
   public orderService = new OrderService();
   public getOrders = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -37,10 +41,20 @@ class OrderController {
       next(error);
     }
   };
-  public getOrderById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  public getOrderById = async (req: RequestWithUser, res: Response, next: NextFunction): Promise<void> => {
     try {
       const orderId: string = req.params.id;
       const findOneOrderData: Order = await this.orderService.findOrderById(orderId);
+      // findOrderById populates `user`, so it may be a full document ({ _id, ... })
+      // rather than a bare id — resolve either shape before comparing.
+      const orderUserId = (findOneOrderData.user as any)?._id?.toString() ?? findOneOrderData.user?.toString();
+      const isOwner = orderUserId === req.user?._id?.toString();
+      if (!isOwner) {
+        const canReadAnyOrder = await roleService.hasPermission({ userId: req.user?._id?.toString(), permission: Permission.READ_ORDER });
+        if (!canReadAnyOrder) {
+          throw new HttpException(403, 'Access denied. Insufficient permissions.');
+        }
+      }
       res.status(200).json({ data: findOneOrderData, message: 'findOne' });
     } catch (error) {
       next(error);

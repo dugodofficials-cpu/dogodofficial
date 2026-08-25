@@ -1,6 +1,6 @@
-import { NextFunction, Request, Response, Router } from 'express';
+import { Router } from 'express';
 import ProductsController from '@backend/products/products.controller';
-import { CreateProductDto, UpdateProductDto } from '@backend/products/products.dto';
+import { UpdateProductDto } from '@backend/products/products.dto';
 import { Routes } from '@backend/interfaces/routes.interface';
 import validationMiddleware from '@backend/middlewares/validation.middleware';
 import authMiddleware from '@backend/middlewares/auth.middleware';
@@ -30,17 +30,12 @@ class ProductsRoute implements Routes {
     this.router.get(`${this.path}/bundles/:id/value`, authMiddleware, this.productsController.calculateBundleValue);
     this.router.get(`${this.path}/bundles/:id/availability`, authMiddleware, this.productsController.validateBundleAvailability);
     this.router.post(
+      `${this.path}/upload-url`,
+      [authMiddleware, hasPermission(Permission.UPLOAD_MEDIA)],
+      this.productsController.getUploadUrl
+    );
+    this.router.post(
       `${this.path}`,
-      (req: Request, res: Response, next: NextFunction) => {
-        console.error('[UPLOAD DEBUG] POST /products request received', {
-          method: req.method,
-          url: req.url,
-          contentType: req.headers['content-type'],
-          contentLength: req.headers['content-length'],
-          timestamp: new Date().toISOString()
-        });
-        next();
-      },
       [authMiddleware, hasPermission(Permission.UPLOAD_MEDIA)],
       handleMulterUpload,
       this.productsController.createProduct
@@ -66,9 +61,9 @@ class ProductsRoute implements Routes {
       `${this.path}/:productId/preview`,
       this.productsController.previewMedia
     );
-    this.router.put(`${this.path}/:id`, authMiddleware, validationMiddleware(UpdateProductDto, 'body', true), this.productsController.updateProduct);
-    this.router.delete(`${this.path}/:id`, authMiddleware, this.productsController.deleteProduct);
-    this.router.patch(`${this.path}/:id/stock`, authMiddleware, validationMiddleware({ quantity: 'number' }, 'body'), this.productsController.updateStock);
+    this.router.put(`${this.path}/:id`, [authMiddleware, hasPermission(Permission.UPDATE_PRODUCT)], validationMiddleware(UpdateProductDto, 'body', true), this.productsController.updateProduct);
+    this.router.delete(`${this.path}/:id`, [authMiddleware, hasPermission(Permission.DELETE_PRODUCT)], this.productsController.deleteProduct);
+    this.router.patch(`${this.path}/:id/stock`, [authMiddleware, hasPermission(Permission.UPDATE_PRODUCT)], validationMiddleware({ quantity: 'number' }, 'body'), this.productsController.updateStock);
   }
 }
 export default ProductsRoute;

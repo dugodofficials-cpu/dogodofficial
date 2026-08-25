@@ -26,20 +26,23 @@ import {
   CreateProductDto,
   ProductStatus,
   ProductType,
+  uploadProductImageDirect,
+  createProduct,
+  updateProduct,
 } from '@/lib/admin/api/products';
-import { useCreateProduct } from '@/hooks/admin/products';
 import { enqueueSnackbar } from 'notistack';
 import { ROUTES } from '@/utils/paths';
 import { productCategories } from '@/lib/admin/utils/categories';
+import { useRouter } from 'next/navigation';
 
 const shippingCategories = ['Small', 'Medium', 'Large', 'Extra Large'];
 const sizes = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 export function AddProductForm() {
   const [images, setImages] = React.useState<File[]>([]);
-
-  const { mutate: createProduct, isPending: isCreatingProduct } =
-    useCreateProduct(ROUTES.DASHBOARD.SHOP.HOME);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const router = useRouter();
 
   const {
     control,
@@ -70,32 +73,52 @@ export function AddProductForm() {
       alert('You can only upload up to 4 images');
       return;
     }
+    const oversized = files.find((file) => file.size > MAX_IMAGE_BYTES);
+    if (oversized) {
+      alert(`"${oversized.name}" is over ${MAX_IMAGE_BYTES / (1024 * 1024)}MB. Please choose a smaller image.`);
+      return;
+    }
     setImages(files);
   };
 
   const onSubmit = async (data: CreateProductFormData) => {
-    const formData = new FormData();
-    Object.entries(data).forEach(([key, value]) => {
-      if (Array.isArray(value)) {
-        value.forEach((item) => formData.append(key, item as string));
-      } else {
-        formData.append(key, value.toString());
+    setIsSubmitting(true);
+    try {
+      const { tags, ...rest } = data;
+      // Create the product's metadata first — this request has no file in
+      // it, so it's small and can't hit Vercel's request-size limit.
+      const created = await createProduct({
+        ...rest,
+        tags: [tags],
+      } as unknown as CreateProductDto);
+
+      if (images.length > 0) {
+        try {
+          // Each image uploads straight to storage from the browser, then we
+          // attach the resulting keys with a normal (small, JSON) update —
+          // the image bytes never pass through this app's own API route.
+          const uploaded = await Promise.all(images.map((file) => uploadProductImageDirect(file)));
+          await updateProduct(created.data._id, { images: uploaded.map((u) => u.key) });
+        } catch (uploadError) {
+          enqueueSnackbar(
+            'Product was created, but the image upload failed — edit the product to add images.',
+            { variant: 'warning' },
+          );
+          console.error('Product image upload failed:', uploadError);
+          reset();
+          router.push(ROUTES.DASHBOARD.SHOP.HOME);
+          return;
+        }
       }
-    });
 
-    images.forEach((image) => {
-      formData.append('image', image);
-    });
-
-    createProduct(formData as unknown as CreateProductDto, {
-      onSuccess: () => {
-        enqueueSnackbar('Product created successfully', { variant: 'success' });
-        reset();
-      },
-      onError: (error) => {
-        enqueueSnackbar(error.message, { variant: 'error' });
-      },
-    });
+      enqueueSnackbar('Product created successfully', { variant: 'success' });
+      reset();
+      router.push(ROUTES.DASHBOARD.SHOP.HOME);
+    } catch (error) {
+      enqueueSnackbar(error instanceof Error ? error.message : 'Failed to create product', { variant: 'error' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -324,7 +347,7 @@ export function AddProductForm() {
           type="submit"
           variant="contained"
           size="large"
-          disabled={isCreatingProduct}
+          disabled={isSubmitting}
           startIcon={<SaveIcon />}
           sx={{
             bgcolor: '#2FD65D',
@@ -332,7 +355,7 @@ export function AddProductForm() {
             color: 'white',
           }}
         >
-          {isCreatingProduct ? 'Saving...' : 'Save Product'}
+          {isSubmitting ? 'Saving...' : 'Save Product'}
         </Button>
       </Box>
     </Box>

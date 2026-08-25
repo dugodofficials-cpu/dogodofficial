@@ -4,7 +4,7 @@ import orderModel from '@backend/orders/orders.model';
 import { ProductType } from '@backend/products/products.interface';
 import productModel from '@backend/products/products.model';
 import { HttpException } from '@backend/exceptions/HttpException';
-import { isEmpty } from '@backend/utils/util';
+import { isEmpty, escapeRegex } from '@backend/utils/util';
 import cartService from '../cart/cart.service';
 import couponService from '../coupons/coupons.service';
 import OrderEmailService from './order-email.service';
@@ -74,11 +74,12 @@ class OrderService {
       filter.status = { $ne: OrderStatus.DELETED };
     }
     if (search) {
+      const safeSearch = escapeRegex(search);
       filter.$or = [
-        { orderNumber: { $regex: search, $options: 'i' } },
-        { 'shippingDetails.address': { $regex: search, $options: 'i' } },
-        { 'shippingDetails.city': { $regex: search, $options: 'i' } },
-        { 'shippingDetails.country': { $regex: search, $options: 'i' } },
+        { orderNumber: { $regex: safeSearch, $options: 'i' } },
+        { 'shippingDetails.address': { $regex: safeSearch, $options: 'i' } },
+        { 'shippingDetails.city': { $regex: safeSearch, $options: 'i' } },
+        { 'shippingDetails.country': { $regex: safeSearch, $options: 'i' } },
       ];
     }
     if (userId) filter.user = userId;
@@ -169,15 +170,12 @@ class OrderService {
   }
   public async createOrder(orderData: CreateOrderDto): Promise<Order> {
     if (isEmpty(orderData)) throw new HttpException(400, 'orderData is empty');
-    let cartDiscount = 0;
-    let couponCode = null;
     if (!orderData.user) throw new HttpException(400, 'user is required');
     const cart = await this.cartService.findCartByUserId(orderData.user);
     if (!cart) {
       throw new HttpException(404, 'Cart not found');
     }
-    couponCode = cart.discounts[0]?.code;
-    cartDiscount = cart.discounts.reduce((sum, discount) => {
+    const cartDiscount = cart.discounts.reduce((sum, discount) => {
       if (discount.type === 'PERCENTAGE') {
         const discountAmount = cart.subtotal * (discount.value / 100);
         return sum + (discount.maximumDiscount ? Math.min(discountAmount, discount.maximumDiscount) : discountAmount);
@@ -185,14 +183,26 @@ class OrderService {
         return sum + discount.value;
       }
     }, 0);
-    const processedItems = await Promise.all(orderData.items.map(async item => {
-      const product = await this.products.findById(item.product);
+
+    // Re-price every line item from the database — a client-submitted
+    // price/total/tax must never be trusted, or a caller could hit this
+    // endpoint directly with fabricated low figures and pay far less than
+    // the real amount via Paystack.
+    const dbProducts = await Promise.all(orderData.items.map(item => this.products.findById(item.product)));
+    const processedItems = orderData.items.map((item, index) => {
+      const product = dbProducts[index];
       if (!product) throw new HttpException(404, `Product ${item.product} not found`);
-      return { ...item, product: product._id, productType: product.type };
-    }));
+      const unitPrice = product.type === ProductType.BUNDLE ? (product.bundlePrice ?? 0) : product.price;
+      return {
+        ...item,
+        product: product._id,
+        productType: product.type,
+        price: unitPrice,
+        total: unitPrice * item.quantity,
+      };
+    });
     const orderItems = processedItems.map(({ productType, ...item }) => item);
     const hasPhysicalItems = processedItems.some(item => item.productType === ProductType.PHYSICAL);
-    const hasDigitalItems = processedItems.some(item => item.productType === ProductType.DIGITAL);
     if (hasPhysicalItems && !orderData.shippingDetails) {
       throw new HttpException(400, 'Shipping details required for physical items');
     }
@@ -200,31 +210,51 @@ class OrderService {
       ? await this.shippingService.calculateShippingRate(orderData.shippingDetails)
       : 0;
     const subtotal = orderItems.reduce((sum, item) => sum + item.total, 0);
-    const total = subtotal + orderData.tax + orderData.shippingCost - (cartDiscount || orderData.discount || 0);
-    const order = new this.orders({
-      cartId: cart._id,
-      ...orderData,
-      items: orderItems,
-      subtotal,
-      total,
-      discount: cartDiscount,
-      status: OrderStatus.PENDING,
-    });
-    const createOrderData: Order = await order.save();
-    if (hasPhysicalItems) {
-      await Promise.all(
-        processedItems
-          .filter(item => item.productType === ProductType.PHYSICAL)
-          .map(async item => {
-            const product = await this.products.findById(item.product);
-            if (product) {
-              product.stockQuantity = (product.stockQuantity ?? 0) - item.quantity;
-              await product.save();
-            }
-          }),
-      );
+    // No tax computation exists in this codebase yet (checkout always submits 0)
+    // — a client-submitted tax figure is never trusted here.
+    const total = subtotal + orderData.shippingCost - cartDiscount;
+
+    const session = await this.orders.db.startSession();
+    let orderDoc: (Order & { _id: unknown }) | undefined;
+    try {
+      await session.withTransaction(async () => {
+        // Atomically reserve stock for physical items. If any product doesn't
+        // have enough stock left, the whole transaction aborts — no order is
+        // created and nothing already-decremented is left dangling.
+        const physicalItems = processedItems.filter(item => item.productType === ProductType.PHYSICAL);
+        for (const item of physicalItems) {
+          const updated = await this.products.findOneAndUpdate(
+            { _id: item.product, stockQuantity: { $gte: item.quantity } },
+            { $inc: { stockQuantity: -item.quantity } },
+            { new: true, session },
+          );
+          if (!updated) {
+            const product = dbProducts.find(p => p?._id?.toString() === item.product.toString());
+            throw new HttpException(409, `Insufficient stock for "${product?.name ?? item.product}"`);
+          }
+        }
+        const created = await this.orders.create(
+          [
+            {
+              cartId: cart._id,
+              ...orderData,
+              items: orderItems,
+              subtotal,
+              tax: 0,
+              total,
+              discount: cartDiscount,
+              status: OrderStatus.PENDING,
+            },
+          ],
+          { session },
+        );
+        orderDoc = created[0] as unknown as Order & { _id: unknown };
+      });
+    } finally {
+      await session.endSession();
     }
-    const populatedOrder = await this.orders.findById(createOrderData._id).populate('user').populate('items.product');
+
+    const populatedOrder = await this.orders.findById((orderDoc as any)._id).populate('user').populate('items.product');
     if (!populatedOrder) {
       throw new HttpException(500, 'Failed to populate created order');
     }
@@ -243,7 +273,12 @@ class OrderService {
   public async updateOrderStatus(orderId: string, statusData: UpdateOrderStatusDto, user: User): Promise<Order> {
     const order = await this.findOrderById(orderId);
     this.validateStatusTransition(order.status, statusData.status);
-    if (order.discount > 0) {
+    // Only count coupon usage once, on the PENDING -> CONFIRMED transition —
+    // this handler also runs for every later transition (CONFIRMED ->
+    // PROCESSING -> SHIPPED -> DELIVERED, or admin re-applying CONFIRMED),
+    // which was previously re-incrementing usageCount on the same order
+    // every time and exhausting usageLimit far faster than real usage.
+    if (order.discount > 0 && order.status === OrderStatus.PENDING && statusData.status === OrderStatus.CONFIRMED) {
       const cart = await this.cartService.findCartById(order.cartId.toString());
       if (cart) {
         await this.couponService.incrementUsageCount(cart.discounts[0].code);
@@ -411,11 +446,10 @@ class OrderService {
   private async restoreStock(order: Order): Promise<void> {
     await Promise.all(
       order.items.map(async item => {
-        const product = await this.products.findById(item.product);
-        if (product && product.type === ProductType.PHYSICAL) {
-          product.stockQuantity = (product.stockQuantity ?? 0) + item.quantity;
-          await product.save();
-        }
+        await this.products.updateOne(
+          { _id: item.product, type: ProductType.PHYSICAL },
+          { $inc: { stockQuantity: item.quantity } },
+        );
       }),
     );
   }

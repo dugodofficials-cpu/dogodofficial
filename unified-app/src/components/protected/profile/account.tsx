@@ -20,10 +20,13 @@ import { useSnackbar } from 'notistack';
 import { Controller, useForm } from 'react-hook-form';
 import { useState, useRef } from 'react';
 import { apiClient } from '@/lib/api/client';
+import { useQueryClient } from '@tanstack/react-query';
+import type { User } from '@/lib/api/user';
 
 export default function Account() {
   const { enqueueSnackbar } = useSnackbar();
   const { user, updateUser } = useUser();
+  const queryClient = useQueryClient();
   const logoutMutation = useLogout();
   const [uploadingPicture, setUploadingPicture] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,11 +100,18 @@ export default function Account() {
         }
       );
 
-      // Update user data with new picture
-      await updateUser.mutateAsync({
-        _id: user?._id || '',
-        picture: response.data.picture,
-      });
+      // The backend already persisted the storage key for us and returned a
+      // presigned display URL in this response. Only update the local cache
+      // with it for immediate UI feedback — do NOT round-trip it through the
+      // generic updateUser PUT, which would overwrite the stored key with this
+      // temporary signed URL and break the avatar once the signature expires.
+      queryClient.setQueryData(['auth'], (oldData: { data: User } | undefined) => ({
+        ...oldData,
+        data: {
+          ...oldData?.data,
+          picture: response.data.picture,
+        },
+      }));
 
       enqueueSnackbar('Profile picture updated successfully', { variant: 'success' });
     } catch (err) {

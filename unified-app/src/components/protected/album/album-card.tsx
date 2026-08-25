@@ -1,5 +1,6 @@
 import { Box, Typography, useMediaQuery, useTheme } from '@mui/material';
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
 import PrimaryButton from '@/components/ui/custom-button';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '@/util/paths';
@@ -34,6 +35,11 @@ export default function AlbumCard({
   const router = useRouter();
   const { mutate: addToCart, isPending } = useAddToCart();
   const { data: cartItems } = useCart();
+  const fallbackImage = '/assets/product-placeholder.svg';
+  const [coverSrc, setCoverSrc] = useState(albumImage || fallbackImage);
+  useEffect(() => {
+    setCoverSrc(albumImage || fallbackImage);
+  }, [albumImage]);
   const handleClick = () => {
     router.push(ROUTES.ALBUM.DETAILS.replace(':id', id));
   };
@@ -78,7 +84,13 @@ export default function AlbumCard({
           borderRadius: '0.75rem',
         }}
       >
-        <Image src={albumImage} alt="Album 1" fill objectFit={isMobile ? 'cover' : 'contain'} />
+        <Image
+          src={coverSrc}
+          alt="Album 1"
+          fill
+          objectFit={isMobile ? 'cover' : 'contain'}
+          onError={() => setCoverSrc(fallbackImage)}
+        />
       </Box>
       <Typography
         sx={{

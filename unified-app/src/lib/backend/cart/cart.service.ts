@@ -198,7 +198,8 @@ class CartService {
     const productIds = cart.items.map(item => {
       return typeof item.product === 'string' ? item.product : item.product._id.toString();
     });
-    const isFirstPurchase = true;
+    const cartUserId = typeof cart.user === 'string' ? cart.user : cart.user._id.toString();
+    const isFirstPurchase = await this.isFirstPurchase(cartUserId);
     const validationResult = await this.couponService.validateCoupon({
       code: discountData.code,
       cartTotal: cart.subtotal,

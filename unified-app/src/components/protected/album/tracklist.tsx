@@ -41,6 +41,11 @@ export default function Tracklist() {
     type: ProductType.DIGITAL,
   });
   const [isCoverOpen, setIsCoverOpen] = useState(false);
+  const [coverImageFailed, setCoverImageFailed] = useState(false);
+  const albumCoverFallback = '/assets/product-placeholder.svg';
+  const albumCoverSrc = coverImageFailed
+    ? albumCoverFallback
+    : albumProducts?.data[0]?.albumId?.imageUrl || albumCoverFallback;
 
   const handleOpenPricingModal = () => {
     setIsPricingModalOpen(true);
@@ -416,10 +421,11 @@ export default function Tracklist() {
                 aria-label="Open album cover"
               >
                 <Image
-                  src={albumProducts?.data[0].albumId?.imageUrl || ''}
+                  src={albumCoverSrc}
                   alt="album1"
                   fill
                   style={{ objectFit: 'cover', objectPosition: 'center' }}
+                  onError={() => setCoverImageFailed(true)}
                 />
               </Box>
               <Dialog
@@ -461,11 +467,12 @@ export default function Tracklist() {
                     }}
                   >
                     <Image
-                      src={albumProducts?.data[0].albumId?.imageUrl || ''}
+                      src={albumCoverSrc}
                       alt="album cover enlarged"
                       fill
                       style={{ objectFit: 'contain' }}
                       priority
+                      onError={() => setCoverImageFailed(true)}
                     />
                   </Box>
                 </DialogContent>

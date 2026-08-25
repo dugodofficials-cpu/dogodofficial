@@ -104,5 +104,21 @@ class S3PublicService {
       throw new HttpException(500, 'Error generating signed URL');
     }
   }
+  // Lets a client upload a file directly to storage (bypassing the Vercel
+  // serverless function's ~4.5MB request-body cap, which is a hard platform
+  // limit — routing file bytes through the function at all can never work
+  // for anything much bigger than that, no matter what multer allows).
+  async getPresignedUploadUrl(key: string, contentType: string, expiresIn: number = 300): Promise<string> {
+    try {
+      const command = new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ContentType: contentType,
+      });
+      return await getSignedUrl(this.s3Client, command, { expiresIn });
+    } catch (error) {
+      throw new HttpException(500, 'Error generating upload URL');
+    }
+  }
 }
 export default new S3PublicService();

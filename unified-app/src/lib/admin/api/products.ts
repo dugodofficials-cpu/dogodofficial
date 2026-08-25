@@ -252,6 +252,27 @@ export const getProductById = (id: string): Promise<ProductById> => {
   return apiClient<ProductById>(`/products/${id}`);
 };
 
+// Uploads a product cover image directly to storage from the browser,
+// bypassing this app's own API route entirely for the file bytes. Vercel
+// caps a serverless function's request body around 4.5MB at the platform
+// level — a real, uncompressed photo routinely exceeds that, which is what
+// was causing "/api/products" to fail with 413 on product creation.
+export const uploadProductImageDirect = async (file: File): Promise<{ key: string }> => {
+  const { data } = await apiClient<{ data: { key: string; uploadUrl: string } }>(`/products/upload-url`, {
+    method: 'POST',
+    body: { filename: file.name, contentType: file.type, sizeBytes: file.size },
+  });
+  const putResponse = await fetch(data.uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type },
+    body: file,
+  });
+  if (!putResponse.ok) {
+    throw new Error('Failed to upload image to storage');
+  }
+  return { key: data.key };
+};
+
 export const createProduct = (data: CreateProductDto) => {
   return apiClient<ProductById>(`/products`, {
     headers: {

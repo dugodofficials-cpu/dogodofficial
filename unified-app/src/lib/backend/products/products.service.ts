@@ -5,7 +5,7 @@ import productModel from '@backend/products/products.model';
 import orderModel from '@backend/orders/orders.model';
 import { OrderStatus } from '@backend/orders/orders.interface';
 import { PaymentStatus } from '@backend/payments/payments.interface';
-import { isEmpty } from '@backend/utils/util';
+import { isEmpty, escapeRegex } from '@backend/utils/util';
 import { GetProductsQueryDto, GetDigitalProductsByAlbumsQueryDto } from './products.dto';
 import { logger } from '@backend/utils/logger';
 import { AlbumCoverModel } from '@backend/album-covers/album-covers.model';
@@ -52,11 +52,12 @@ class ProductService {
     } = query;
     const filter: any = {};
     if (search) {
+      const safeSearch = escapeRegex(search);
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { sku: { $regex: search, $options: 'i' } },
-        { album: { $regex: search, $options: 'i' } },
+        { name: { $regex: safeSearch, $options: 'i' } },
+        { description: { $regex: safeSearch, $options: 'i' } },
+        { sku: { $regex: safeSearch, $options: 'i' } },
+        { album: { $regex: safeSearch, $options: 'i' } },
       ];
     }
     if (type) filter.type = includeBundleItems ? { $in: [type, ProductType.BUNDLE, ProductType.EBOOK] } : type === ProductType.PHYSICAL ? { $in: [type, ProductType.EBOOK] } : type;
@@ -301,9 +302,10 @@ class ProductService {
     const { page = 1, limit = 10, search, minPrice, maxPrice, sortBy = 'album', sortOrder = 'asc' } = query;
     const albumCoverFilter: any = {};
     if (search) {
+      const safeSearch = escapeRegex(search);
       albumCoverFilter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
+        { title: { $regex: safeSearch, $options: 'i' } },
+        { description: { $regex: safeSearch, $options: 'i' } },
       ];
     }
     const albumSort: any = {};
@@ -331,10 +333,11 @@ class ProductService {
       if (maxPrice !== undefined) productsFilter.price.$lte = maxPrice;
     }
     if (search) {
+      const safeSearch = escapeRegex(search);
       productsFilter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { album: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
+        { name: { $regex: safeSearch, $options: 'i' } },
+        { album: { $regex: safeSearch, $options: 'i' } },
+        { description: { $regex: safeSearch, $options: 'i' } },
       ];
     }
     const productSort: any = {

@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsEnum, IsArray, IsOptional, IsBoolean, ValidateNested, Min, IsUrl, ArrayMinSize, Max, IsIn, ValidateIf } from 'class-validator';
+import { IsString, IsNumber, IsEnum, IsArray, IsOptional, IsBoolean, ValidateNested, Min, ArrayMinSize, Max, IsIn, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ProductType, ProductStatus } from './products.interface';
 export class ProductDimensionsDto {
@@ -108,7 +108,10 @@ export class CreateProductDto {
   @IsOptional()
   public tags?: string[];
   @IsArray()
-  @IsUrl({}, { each: true })
+  // Storage keys, not URLs — the bucket isn't publicly readable, so these get
+  // resolved to a fresh signed URL at response time (signPublicUrls
+  // middleware), same as digitalDeliveryInfo/ebookDeliveryInfo below.
+  @IsString({ each: true })
   @ArrayMinSize(1)
   public images: string[];
   @IsOptional()
@@ -207,7 +210,7 @@ export class UpdateProductDto extends CreateProductDto {
   public categories: string[];
   @IsOptional()
   @IsArray()
-  @IsUrl({}, { each: true })
+  @IsString({ each: true })
   public images: string[];
   @IsOptional()
   @ValidateNested({ each: true })

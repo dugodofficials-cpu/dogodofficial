@@ -2,7 +2,7 @@
 import { useAddToCart, useCart } from '@/hooks/cart';
 import { Box, Button, Grid, Typography, Tooltip, CircularProgress } from '@mui/material';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AudioPlayer from '@/components/ui/audio-player';
 import { useGetUserOrders } from '@/hooks/order';
 import { Product, ProductType } from '@/lib/api/products';
@@ -38,6 +38,11 @@ export default function TracklistItem({
     type: ProductType.DIGITAL,
   });
   const [tooltipOpen, setTooltipOpen] = useState(false);
+  const fallbackImage = '/assets/product-placeholder.svg';
+  const [coverSrc, setCoverSrc] = useState(image || fallbackImage);
+  useEffect(() => {
+    setCoverSrc(image || fallbackImage);
+  }, [image]);
 
   const isPurchased = orders?.data?.some((order) =>
     order.items.some((item) => {
@@ -144,7 +149,7 @@ export default function TracklistItem({
             position: 'relative',
           }}
         >
-          <Image src={image} alt="track" fill style={{ objectFit: 'cover' }} />
+          <Image src={coverSrc} alt="track" fill style={{ objectFit: 'cover' }} onError={() => setCoverSrc(fallbackImage)} />
         </Box>
         <Box
           sx={{

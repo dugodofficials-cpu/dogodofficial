@@ -4,6 +4,9 @@ import { isEmpty } from '@backend/utils/util';
 import userModel from '@backend/users/users.model';
 import EmailService from '@backend/email/email.service';
 import { logger } from '@backend/utils/logger';
+import { FRONTEND_URL } from '@backend/config';
+const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+const RESEND_COOLDOWN_MS = 5 * 60 * 1000;
 class EmailVerificationService {
   private emailService = new EmailService();
   private users = userModel;
@@ -11,9 +14,7 @@ class EmailVerificationService {
     return randomBytes(32).toString('hex');
   }
   private getVerificationExpiry(): Date {
-    const expiry = new Date();
-    expiry.setHours(expiry.getHours() + 24);
-    return expiry;
+    return new Date(Date.now() + VERIFICATION_TTL_MS);
   }
   public async sendVerificationEmail(userId: string, userEmail: string, firstName?: string): Promise<void> {
     if (isEmpty(userId) || isEmpty(userEmail)) {
@@ -26,7 +27,7 @@ class EmailVerificationService {
         emailVerificationToken: verificationToken,
         emailVerificationExpires: verificationExpiry,
       });
-      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const baseUrl = FRONTEND_URL || 'http://localhost:3000';
       const verificationUrl = `${baseUrl}/auth/verify-email?token=${verificationToken}`;
       const emailData = {
         to: [userEmail],
@@ -89,8 +90,15 @@ class EmailVerificationService {
       if (user.isEmailVerified) {
         throw new HttpException(400, 'Email is already verified');
       }
-      if (user.emailVerificationExpires && user.emailVerificationExpires > new Date(Date.now() - 5 * 60 * 1000)) {
-        throw new HttpException(400, 'Please wait 5 minutes before requesting another verification email');
+      // emailVerificationExpires is always (sentAt + 24h), not a "last sent"
+      // timestamp on its own — comparing it directly against "now - 5min" was
+      // true for virtually the entire 24h window, blocking resends for a full
+      // day instead of 5 minutes. Reconstruct the actual sentAt first.
+      if (user.emailVerificationExpires) {
+        const sentAt = user.emailVerificationExpires.getTime() - VERIFICATION_TTL_MS;
+        if (Date.now() - sentAt < RESEND_COOLDOWN_MS) {
+          throw new HttpException(400, 'Please wait 5 minutes before requesting another verification email');
+        }
       }
       await this.sendVerificationEmail(user._id.toString(), user.email, user.firstName);
       logger.info(`Verification email resent to ${email}`);

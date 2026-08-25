@@ -208,12 +208,18 @@ class AuthService {
         }
         return { user, token: tokenData.token, cookie, message: 'Login successful' };
       }
+      // Google-created accounts have no password of their own, but the schema
+      // stores one field for both auth methods — write a bcrypt hash of the
+      // (unguessable, per-user) Google subject claim rather than the raw
+      // value, so this field is a real hash like every other account's,
+      // never a plaintext secret-shaped string sitting in the DB.
+      const hashedGoogleSecret = await hash(payload.sub, 10);
       const createUserData: User = await this.users.create({
         email: payload.email,
         firstName: payload.given_name || '',
         lastName: payload.family_name || '',
         picture: payload.picture || '',
-        password: payload.sub,
+        password: hashedGoogleSecret,
         phone: '',
         status: 'active',
         isEmailVerified: true,

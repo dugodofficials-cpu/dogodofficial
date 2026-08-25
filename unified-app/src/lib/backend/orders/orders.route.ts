@@ -6,6 +6,7 @@ import validationMiddleware from '@backend/middlewares/validation.middleware';
 import authMiddleware from '@backend/middlewares/auth.middleware';
 import { orderCreateLimiter } from '@backend/middlewares/rateLimit.middleware';
 import { hasPermission } from '@backend/middlewares/permission.middleware';
+import { selfOrPermission } from '@backend/middlewares/selfOrPermission.middleware';
 import { Permission } from '../roles/roles.interface';
 class OrderRoute implements Routes {
   public path = '/orders';
@@ -15,12 +16,14 @@ class OrderRoute implements Routes {
     this.initializeRoutes();
   }
   private initializeRoutes() {
-    this.router.get(`${this.path}`, [authMiddleware], this.orderController.getOrders);
-    this.router.get(`${this.path}/statistics`, authMiddleware, this.orderController.getOrderStatistics);
-    this.router.get(`${this.path}/number/:orderNumber`, authMiddleware, this.orderController.getOrderByNumber);
-    this.router.get(`${this.path}/user/:userId`, authMiddleware, this.orderController.getUserOrders);
-    this.router.get(`${this.path}/status/:status`, authMiddleware, this.orderController.getOrdersByStatus);
-    this.router.get(`${this.path}/date-range`, authMiddleware, this.orderController.getOrdersByDateRange);
+    // Whole-system order browsing (unfiltered by owner) is admin-only.
+    this.router.get(`${this.path}`, [authMiddleware, hasPermission(Permission.READ_ORDER)], this.orderController.getOrders);
+    this.router.get(`${this.path}/statistics`, [authMiddleware, hasPermission(Permission.READ_ORDER)], this.orderController.getOrderStatistics);
+    this.router.get(`${this.path}/number/:orderNumber`, [authMiddleware, hasPermission(Permission.READ_ORDER)], this.orderController.getOrderByNumber);
+    // A customer may fetch their own order history; anyone else needs READ_ORDER.
+    this.router.get(`${this.path}/user/:userId`, [authMiddleware, selfOrPermission(Permission.READ_ORDER, 'userId')], this.orderController.getUserOrders);
+    this.router.get(`${this.path}/status/:status`, [authMiddleware, hasPermission(Permission.READ_ORDER)], this.orderController.getOrdersByStatus);
+    this.router.get(`${this.path}/date-range`, [authMiddleware, hasPermission(Permission.READ_ORDER)], this.orderController.getOrdersByDateRange);
     this.router.patch(
       `${this.path}/bulk-delete`,
       [authMiddleware, hasPermission(Permission.DELETE_ORDER)],

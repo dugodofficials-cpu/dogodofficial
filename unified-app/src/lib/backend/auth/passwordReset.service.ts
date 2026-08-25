@@ -5,8 +5,11 @@ import userModel from '@backend/users/users.model';
 import EmailService from '@backend/email/email.service';
 import { logger } from '@backend/utils/logger';
 import { hash } from 'bcrypt';
+import { FRONTEND_URL } from '@backend/config';
+import SessionService from '@backend/auth/session.service';
 class PasswordResetService {
   private emailService = new EmailService();
+  private sessionService = new SessionService();
   private users = userModel;
   private generateResetToken(): string {
     return randomBytes(32).toString('hex');
@@ -32,7 +35,7 @@ class PasswordResetService {
         passwordResetToken: resetToken,
         passwordResetExpires: resetExpiry,
       });
-      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const baseUrl = FRONTEND_URL || 'http://localhost:3000';
       const resetUrl = `${baseUrl}/auth/reset-password?token=${resetToken}`;
       const emailData = {
         to: [email],
@@ -69,6 +72,10 @@ class PasswordResetService {
         passwordResetToken: null,
         passwordResetExpires: null,
       });
+      // A password reset should also invalidate any session an attacker may
+      // already hold on a compromised account — otherwise a stolen cookie
+      // stays valid straight through the "fix".
+      await this.sessionService.revokeAllUserSessions(user._id);
       logger.info(`Password reset successfully for user ${user._id}`);
       return {
         success: true,

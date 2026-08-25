@@ -41,6 +41,13 @@ class App {
         set('debug', true);
       }
       set('strictQuery', false);
+      // Indexes already exist in the real cluster from earlier connections.
+      // Mongoose's default autoIndex re-verifies/creates every index on every
+      // collection on each `connect()` call, which is pure added latency on
+      // a serverless cold start (visible as a burst of createIndex calls in
+      // logs on every fresh Lambda). Keep it on in dev, where schema changes
+      // are frequent and indexes should just appear.
+      set('autoIndex', this.env !== 'production');
       await connect(dbConnection.url);
       await connection.db.admin().command({ ping: 1 });
       logger.info('Pinged your deployment. You successfully connected to MongoDB!');
@@ -59,10 +66,19 @@ class App {
     });
     this.app.use(strictSecurity);
     this.app.use(morgan(LOG_FORMAT || 'dev', { stream }));
-    const allowedOrigins = ORIGIN ? ORIGIN.split(',').map(origin => origin.trim()).filter(Boolean) : [];
-    const corsOrigin = this.env === 'development'
-      ? true
-      : (allowedOrigins.length > 0 ? allowedOrigins : true);
+    // ORIGIN isn't set in any of .env.example/.env.local/.env.production in this
+    // repo, so if it was also never set in Vercel, this used to silently fall
+    // back to `true` (reflect-and-allow-any-origin) in production. Fall back to
+    // the known real production hosts instead — still overridable via ORIGIN.
+    const DEFAULT_PRODUCTION_ORIGINS = [
+      'https://dugodofficial.com',
+      'https://www.dugodofficial.com',
+      'https://admin.dugodofficial.com',
+    ];
+    const allowedOrigins = ORIGIN
+      ? ORIGIN.split(',').map(origin => origin.trim()).filter(Boolean)
+      : DEFAULT_PRODUCTION_ORIGINS;
+    const corsOrigin = this.env === 'development' ? true : allowedOrigins;
     const corsOptions: cors.CorsOptions = {
       origin: corsOrigin,
       credentials: CREDENTIALS,

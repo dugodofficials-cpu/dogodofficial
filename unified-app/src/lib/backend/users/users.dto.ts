@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsNotEmpty, IsObject, ValidateNested, IsMongoId, IsOptional, IsIn, IsInt, Min, Max, MinLength } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty, IsObject, ValidateNested, IsMongoId, IsOptional, IsIn, IsInt, Min, Max, MinLength, Matches } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 export class AddressDto {
   @IsString()
@@ -21,6 +21,11 @@ export class CreateUserDto {
   @IsEmail()
   public email: string;
   @IsString()
+  @MinLength(8, { message: 'Password must be at least 8 characters' })
+  @Matches(/[A-Z]/, { message: 'Password must contain at least one uppercase letter' })
+  @Matches(/[a-z]/, { message: 'Password must contain at least one lowercase letter' })
+  @Matches(/[0-9]/, { message: 'Password must contain at least one number' })
+  @Matches(/[^A-Za-z0-9]/, { message: 'Password must contain at least one special character' })
   public password: string;
   @IsString()
   @IsNotEmpty()

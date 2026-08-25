@@ -48,11 +48,6 @@ const upload = multer({
   }
 });
 const handleMulterUpload: RequestHandler = (req: Request, res: Response, next: NextFunction) => {
-  console.error('[UPLOAD DEBUG] Multer middleware started', {
-    contentType: req.headers['content-type'],
-    contentLength: req.headers['content-length'],
-    timestamp: new Date().toISOString()
-  });
   const uploadMiddleware = upload.fields([
     { name: 'audio', maxCount: 1 },
     { name: 'audioFile', maxCount: 1 },
@@ -67,12 +62,6 @@ const handleMulterUpload: RequestHandler = (req: Request, res: Response, next: N
     { name: 'profilePicture', maxCount: 1 },
   ]);
   uploadMiddleware(req, res, (err) => {
-    console.error('[UPLOAD DEBUG] Multer callback invoked', {
-      hasError: !!err,
-      hasFiles: !!req.files,
-      fileCount: req.files ? Object.keys(req.files).length : 0,
-      timestamp: new Date().toISOString()
-    });
     if (err instanceof multer.MulterError) {
       console.error('UploadMiddleware: Multer error:', err);
       if (err.code === 'LIMIT_FILE_SIZE') {

@@ -11,17 +11,74 @@ import EmailService from '@backend/email/email.service';
 import jobsService from '@backend/jobs/jobs.service';
 import { JobType } from '@backend/jobs/jobs.interface';
 import { AlbumCoverModel } from '@backend/album-covers/album-covers.model';
+import RoleService from '@backend/roles/roles.service';
+import { Permission } from '@backend/roles/roles.interface';
+const roleService = new RoleService();
+const ALLOWED_UPLOAD_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_DIRECT_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB — generous for a cover photo, not a raw video/album dump
+
 class ProductsController {
   public productService = new ProductService();
   private emailService = new EmailService();
   private readonly skuFallbackPrefix = 'ALBUM';
+  // Product cover images upload directly to storage from the browser via a
+  // presigned URL, instead of through this Vercel function — see
+  // s3Public.ts's getPresignedUploadUrl for why (the function's request body
+  // is capped around 4.5MB by the platform itself, which any real photo can
+  // exceed regardless of multer's own, much larger, limit).
+  public getUploadUrl = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { filename, contentType, sizeBytes } = req.body || {};
+      if (!filename || typeof filename !== 'string') {
+        throw new HttpException(400, 'filename is required');
+      }
+      if (!ALLOWED_UPLOAD_CONTENT_TYPES.includes(contentType)) {
+        throw new HttpException(400, `contentType must be one of: ${ALLOWED_UPLOAD_CONTENT_TYPES.join(', ')}`);
+      }
+      if (typeof sizeBytes === 'number' && sizeBytes > MAX_DIRECT_UPLOAD_BYTES) {
+        throw new HttpException(400, `File must be under ${MAX_DIRECT_UPLOAD_BYTES / (1024 * 1024)}MB`);
+      }
+      const safeName = filename.toString().replace(/[^a-zA-Z0-9_.-]/g, '_').slice(-120);
+      const key = `products/covers/${Date.now()}-${safeName}`;
+      const uploadUrl = await s3PublicService.getPresignedUploadUrl(key, contentType);
+      res.status(200).json({ data: { key, uploadUrl }, message: 'upload url generated' });
+    } catch (error) {
+      next(error);
+    }
+  };
+  // A generic product read response (list/detail/search/browse) must never
+  // include the actual downloadable file location — that's only handed out
+  // by the dedicated, ownership-checked /products/:id/download endpoint.
+  // Admins (READ_PRODUCT) still see it, since the admin UI needs it.
+  private async canReadPrivateProductFields(req: Request): Promise<boolean> {
+    const userId = (req as RequestWithUser).user?._id?.toString();
+    if (!userId) return false;
+    return roleService.hasPermission({ userId, permission: Permission.READ_PRODUCT });
+  }
+  private stripPrivateDeliveryFields = <T>(product: T): T => {
+    const plain: any = typeof (product as any)?.toObject === 'function' ? (product as any).toObject() : { ...(product as any) };
+    if (plain?.digitalDeliveryInfo) {
+      const { downloadUrl, ...rest } = plain.digitalDeliveryInfo;
+      plain.digitalDeliveryInfo = rest;
+    }
+    if (plain?.ebookDeliveryInfo) {
+      const { downloadUrl, ...rest } = plain.ebookDeliveryInfo;
+      plain.ebookDeliveryInfo = rest;
+    }
+    return plain;
+  };
+  private sanitizeProducts = async (req: Request, products: any) => {
+    if (await this.canReadPrivateProductFields(req)) return products;
+    return Array.isArray(products) ? products.map(this.stripPrivateDeliveryFields) : this.stripPrivateDeliveryFields(products);
+  };
   public getProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const query: GetProductsQueryDto = req.query;
       const products = await this.productService.findAllProducts(query);
+      const data = await this.sanitizeProducts(req, products.data);
       res
         .status(200)
-        .json({ data: products.data, meta: { total: products.total, page: products.page, limit: products.limit, totalPages: products.totalPages } });
+        .json({ data, meta: { total: products.total, page: products.page, limit: products.limit, totalPages: products.totalPages } });
     } catch (error) {
       console.error('Create Product Error:', error);
       if (req.file) cleanupTempFiles(req.file);
@@ -33,7 +90,7 @@ class ProductsController {
     try {
       const productId: string = req.params.id;
       const findOneProductData: Product = await this.productService.findProductById(productId);
-      res.status(200).json({ data: findOneProductData, message: 'findOne' });
+      res.status(200).json({ data: await this.sanitizeProducts(req, findOneProductData), message: 'findOne' });
     } catch (error) {
       console.error('Create Product Error:', error);
       if (req.file) cleanupTempFiles(req.file);
@@ -45,7 +102,7 @@ class ProductsController {
     try {
       const sku: string = req.params.sku;
       const findOneProductData: Product = await this.productService.findProductBySku(sku);
-      res.status(200).json({ data: findOneProductData, message: 'findOne' });
+      res.status(200).json({ data: await this.sanitizeProducts(req, findOneProductData), message: 'findOne' });
     } catch (error) {
       console.error('Create Product Error:', error);
       if (req.file) cleanupTempFiles(req.file);
@@ -187,7 +244,7 @@ class ProductsController {
     try {
       const { query } = req.query;
       const searchResults: Product[] = await this.productService.searchProducts(query as string);
-      res.status(200).json({ data: searchResults, message: 'search results' });
+      res.status(200).json({ data: await this.sanitizeProducts(req, searchResults), message: 'search results' });
     } catch (error) {
       console.error('Create Product Error:', error);
       if (req.file) cleanupTempFiles(req.file);
@@ -199,7 +256,7 @@ class ProductsController {
     try {
       const { category } = req.params;
       const products: Product[] = await this.productService.getProductsByCategory(category);
-      res.status(200).json({ data: products, message: 'category products' });
+      res.status(200).json({ data: await this.sanitizeProducts(req, products), message: 'category products' });
     } catch (error) {
       console.error('Create Product Error:', error);
       if (req.file) cleanupTempFiles(req.file);
@@ -210,7 +267,7 @@ class ProductsController {
   public getActiveProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const products: Product[] = await this.productService.getActiveProducts();
-      res.status(200).json({ data: products, message: 'active products' });
+      res.status(200).json({ data: await this.sanitizeProducts(req, products), message: 'active products' });
     } catch (error) {
       console.error('Create Product Error:', error);
       if (req.file) cleanupTempFiles(req.file);
@@ -221,7 +278,7 @@ class ProductsController {
   public getBundleProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const bundleProducts: Product[] = await this.productService.getBundleProducts();
-      res.status(200).json({ data: bundleProducts, message: 'bundle products' });
+      res.status(200).json({ data: await this.sanitizeProducts(req, bundleProducts), message: 'bundle products' });
     } catch (error) {
       console.error('Create Product Error:', error);
       if (req.file) cleanupTempFiles(req.file);
@@ -233,7 +290,7 @@ class ProductsController {
     try {
       const bundleId: string = req.params.id;
       const bundleProduct: Product = await this.productService.getBundleProductById(bundleId);
-      res.status(200).json({ data: bundleProduct, message: 'bundle product found' });
+      res.status(200).json({ data: await this.sanitizeProducts(req, bundleProduct), message: 'bundle product found' });
     } catch (error) {
       console.error('Create Product Error:', error);
       if (req.file) cleanupTempFiles(req.file);
@@ -277,9 +334,10 @@ class ProductsController {
       const album = req.params.album;
       const query: GetProductsQueryDto = req.query;
       const products = await this.productService.findProductsByAlbum(album, query, req.user._id.toString());
+      const data = await this.sanitizeProducts(req, products.data);
       res
         .status(200)
-        .json({ data: products.data, meta: { total: products.total, page: products.page, limit: products.limit, totalPages: products.totalPages } });
+        .json({ data, meta: { total: products.total, page: products.page, limit: products.limit, totalPages: products.totalPages } });
     } catch (error) {
       console.error('Create Product Error:', error);
       if (req.file) cleanupTempFiles(req.file);
@@ -585,13 +643,24 @@ class ProductsController {
         throw new HttpException(404, 'Preview not available');
       }
 
-      const signedUrl = await s3Service.getSignedUrl(previewKey);
+      // NOTE: there is no separate short preview clip generated anywhere in
+      // this codebase — `previewKey` is the exact same file as the full
+      // purchasable download, and this endpoint is intentionally
+      // unauthenticated so guests can sample a track before buying. The
+      // client-side player caps playback at 15s, but that's not enforced
+      // here, so a direct call to this endpoint can fetch the complete file.
+      // Until real audio-clip generation exists, the only bounded mitigation
+      // available here is a short signed-URL lifetime (was previously
+      // defaulting to 7 days while claiming 1 hour) so the link can't be
+      // bookmarked/shared long-term.
+      const expiresIn = 3600;
+      const signedUrl = await s3Service.getSignedUrl(previewKey, expiresIn);
 
       res.status(200).json({
         message: 'Preview URL generated successfully',
         data: {
           url: signedUrl,
-          expiresIn: 3600,
+          expiresIn,
         },
       });
     } catch (error) {

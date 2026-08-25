@@ -5,7 +5,10 @@ export function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
   const hostname = request.headers.get('host') || '';
   
-  const isAdmin = hostname.startsWith('admin.') || hostname.includes('admin.');
+  // Anchored to the start of the hostname only — an unanchored `.includes('admin.')`
+  // would also match unintended hosts like `superadmin.example.com` or a
+  // spoofed Host header containing that substring anywhere.
+  const isAdmin = hostname.startsWith('admin.');
   const isLocalhost = hostname.includes('localhost') || hostname.includes('127.0.0.1');
   
   if (isLocalhost) {
@@ -31,6 +34,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|otf|eot|css|js|map|json|xml|txt|mp4|webm)$).*)',
   ],
 };
