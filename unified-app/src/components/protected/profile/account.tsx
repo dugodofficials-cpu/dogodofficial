@@ -19,14 +19,11 @@ import Image from 'next/image';
 import { useSnackbar } from 'notistack';
 import { Controller, useForm } from 'react-hook-form';
 import { useState, useRef } from 'react';
-import { apiClient } from '@/lib/api/client';
-import { useQueryClient } from '@tanstack/react-query';
-import type { User } from '@/lib/api/user';
+import { uploadProfilePictureDirect } from '@/lib/api/user';
 
 export default function Account() {
   const { enqueueSnackbar } = useSnackbar();
   const { user, updateUser } = useUser();
-  const queryClient = useQueryClient();
   const logoutMutation = useLogout();
   const [uploadingPicture, setUploadingPicture] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -87,31 +84,17 @@ export default function Account() {
       return;
     }
 
+    if (!user?._id) return;
+
     setUploadingPicture(true);
     try {
-      const formData = new FormData();
-      formData.append('profilePicture', file);
-
-      const response = await apiClient<{ data: { picture: string } }>(
-        `users/${user?._id}/profile-picture`,
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
-
-      // The backend already persisted the storage key for us and returned a
-      // presigned display URL in this response. Only update the local cache
-      // with it for immediate UI feedback — do NOT round-trip it through the
-      // generic updateUser PUT, which would overwrite the stored key with this
-      // temporary signed URL and break the avatar once the signature expires.
-      queryClient.setQueryData(['auth'], (oldData: { data: User } | undefined) => ({
-        ...oldData,
-        data: {
-          ...oldData?.data,
-          picture: response.data.picture,
-        },
-      }));
+      // Uploads straight to storage from the browser — this request never
+      // carries the file bytes, so it can't hit Vercel's request-size limit.
+      const { key } = await uploadProfilePictureDirect(user._id, file);
+      // Persist the storage key via the normal self-service update — its
+      // response is already signed into a working display URL and updates
+      // the cached user, so no separate cache write is needed here.
+      await updateUser.mutateAsync({ _id: user._id, picture: key });
 
       enqueueSnackbar('Profile picture updated successfully', { variant: 'success' });
     } catch (err) {

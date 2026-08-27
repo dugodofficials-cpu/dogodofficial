@@ -6,7 +6,7 @@ import {
   useUpdateAlbumCover,
   useUploadAlbumCover,
 } from '@/hooks/admin/products';
-import { AlbumCover } from '@/lib/admin/api/products';
+import { AlbumCover, uploadProductFileDirect } from '@/lib/admin/api/products';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -36,6 +36,8 @@ import { enqueueSnackbar } from 'notistack';
 import { useDropzone } from 'react-dropzone';
 import { ChangeEvent, useState } from 'react';
 
+const MAX_COVER_IMAGE_BYTES = 10 * 1024 * 1024;
+
 export default function AlbumCoversPage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     open: boolean;
@@ -61,14 +63,17 @@ export default function AlbumCoversPage() {
     file: null,
   });
 
-  const { mutate: uploadAlbumCover, isPending: isUploading } =
+  const { mutate: uploadAlbumCover, isPending: isCreatingAlbumCover } =
     useUploadAlbumCover();
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const isUploading = isUploadingFile || isCreatingAlbumCover;
   const { data: albumCovers, isLoading: isLoadingAlbumCovers } =
     useGetAlbumCovers();
   const { mutate: deleteAlbumCover, isPending: isDeletingAlbumCover } =
     useDeleteAlbumCover();
   const { mutate: updateAlbumCover, isPending: isUpdatingAlbumCover } =
     useUpdateAlbumCover();
+  const isSavingEdit = isUpdatingAlbumCover || isUploadingFile;
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
@@ -79,11 +84,22 @@ export default function AlbumCoversPage() {
     onDrop: async (acceptedFiles) => {
       if (acceptedFiles.length === 0) return;
       const file = acceptedFiles[0];
-      const formData = new FormData();
-      formData.append('image', file);
-      formData.append('title', file.name.split('.')[0]);
-
-      uploadAlbumCover(formData);
+      if (file.size > MAX_COVER_IMAGE_BYTES) {
+        enqueueSnackbar(`Image must be under ${MAX_COVER_IMAGE_BYTES / (1024 * 1024)}MB`, { variant: 'error' });
+        return;
+      }
+      setIsUploadingFile(true);
+      try {
+        // Uploads straight to storage from the browser first, then the
+        // album cover record is created with a plain JSON body — no file
+        // bytes ever pass through this app's own API route.
+        const { key } = await uploadProductFileDirect(file);
+        uploadAlbumCover({ title: file.name.split('.')[0], imageUrl: key });
+      } catch (error) {
+        enqueueSnackbar(error instanceof Error ? error.message : 'Failed to upload cover image', { variant: 'error' });
+      } finally {
+        setIsUploadingFile(false);
+      }
     },
   });
 
@@ -154,23 +170,34 @@ export default function AlbumCoversPage() {
 
   const handleEditFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
+    if (file && file.size > MAX_COVER_IMAGE_BYTES) {
+      enqueueSnackbar(`Image must be under ${MAX_COVER_IMAGE_BYTES / (1024 * 1024)}MB`, { variant: 'error' });
+      return;
+    }
     setEditDialog((prev) => ({ ...prev, file }));
   };
 
-  const handleEditSave = () => {
+  const handleEditSave = async () => {
     if (editDialog.imageId && editDialog.title.trim()) {
-      const data: Partial<AlbumCover> | FormData = editDialog.file
-        ? (() => {
-            const formData = new FormData();
-            formData.append('image', editDialog.file as File);
-            formData.append('title', editDialog.title.trim());
-            formData.append('description', editDialog.description.trim());
-            return formData;
-          })()
-        : {
-            title: editDialog.title.trim(),
-            description: editDialog.description.trim(),
-          };
+      let data: Partial<AlbumCover> = {
+        title: editDialog.title.trim(),
+        description: editDialog.description.trim(),
+      };
+
+      if (editDialog.file) {
+        setIsUploadingFile(true);
+        try {
+          // Uploads straight to storage from the browser first — no file
+          // bytes ever pass through this app's own API route.
+          const { key } = await uploadProductFileDirect(editDialog.file);
+          data = { ...data, imageUrl: key };
+        } catch (error) {
+          enqueueSnackbar(error instanceof Error ? error.message : 'Failed to upload cover image', { variant: 'error' });
+          setIsUploadingFile(false);
+          return;
+        }
+        setIsUploadingFile(false);
+      }
 
       updateAlbumCover(
         {
@@ -428,7 +455,7 @@ export default function AlbumCoversPage() {
             onChange={(e) =>
               setEditDialog({ ...editDialog, title: e.target.value })
             }
-            disabled={isUpdatingAlbumCover}
+            disabled={isSavingEdit}
           />
           <TextField
             margin="dense"
@@ -441,13 +468,13 @@ export default function AlbumCoversPage() {
             onChange={(e) =>
               setEditDialog({ ...editDialog, description: e.target.value })
             }
-            disabled={isUpdatingAlbumCover}
+            disabled={isSavingEdit}
           />
           <Button
             component="label"
             variant="outlined"
             startIcon={<CloudUploadIcon />}
-            disabled={isUpdatingAlbumCover}
+            disabled={isSavingEdit}
           >
             {editDialog.file ? editDialog.file.name : 'Replace image'}
             <input
@@ -459,15 +486,15 @@ export default function AlbumCoversPage() {
           </Button>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleEditCancel} disabled={isUpdatingAlbumCover}>
+          <Button onClick={handleEditCancel} disabled={isSavingEdit}>
             Cancel
           </Button>
           <Button
             onClick={handleEditSave}
             variant="contained"
-            disabled={isUpdatingAlbumCover || !editDialog.title.trim()}
+            disabled={isSavingEdit || !editDialog.title.trim()}
           >
-            {isUpdatingAlbumCover ? 'Saving...' : 'Save'}
+            {isSavingEdit ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>

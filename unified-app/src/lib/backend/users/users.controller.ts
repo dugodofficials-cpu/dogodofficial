@@ -5,8 +5,36 @@ import userService from '@backend/users/users.service';
 import s3PublicService from '@backend/utils/s3Public';
 import { cleanupTempFiles } from '@backend/middlewares/upload.middleware';
 import { RequestWithUser } from '@backend/interfaces/auth.interface';
+import { HttpException } from '@backend/exceptions/HttpException';
+const PROFILE_PICTURE_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_PROFILE_PICTURE_BYTES = 5 * 1024 * 1024;
 class UsersController {
   public userService = new userService();
+  // A user's own profile picture uploads directly to storage from the
+  // browser via a presigned URL, instead of through this Vercel function —
+  // the function's request body is capped around 4.5MB at the platform
+  // level, which a real phone photo can exceed even under this 5MB limit.
+  public getProfilePictureUploadUrl = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId: string = req.params.id;
+      const { filename, contentType, sizeBytes } = req.body || {};
+      if (!filename || typeof filename !== 'string') {
+        throw new HttpException(400, 'filename is required');
+      }
+      if (!PROFILE_PICTURE_CONTENT_TYPES.includes(contentType)) {
+        throw new HttpException(400, `contentType must be one of: ${PROFILE_PICTURE_CONTENT_TYPES.join(', ')}`);
+      }
+      if (typeof sizeBytes === 'number' && sizeBytes > MAX_PROFILE_PICTURE_BYTES) {
+        throw new HttpException(400, `File must be under ${MAX_PROFILE_PICTURE_BYTES / (1024 * 1024)}MB`);
+      }
+      const safeName = filename.toString().replace(/[^a-zA-Z0-9_.-]/g, '_').slice(-120);
+      const key = `users/${userId}/profile-picture/${Date.now()}-${safeName}`;
+      const uploadUrl = await s3PublicService.getPresignedUploadUrl(key, contentType);
+      res.status(200).json({ data: { key, uploadUrl }, message: 'upload url generated' });
+    } catch (error) {
+      next(error);
+    }
+  };
   public getUserStatistics = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userStatistics: { totalUsers: number } = await this.userService.userStatistics();

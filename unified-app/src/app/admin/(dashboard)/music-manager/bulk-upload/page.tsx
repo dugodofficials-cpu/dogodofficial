@@ -1,7 +1,13 @@
 'use client';
 
-import { useBulkUploadAlbumTracks, useGetAlbumCovers } from '@/hooks/admin/products';
-import { AlbumCover, BulkUploadAlbumTracksResponse, ProductStatus } from '@/lib/admin/api/products';
+import { useGetAlbumCovers } from '@/hooks/admin/products';
+import {
+  AlbumCover,
+  BulkUploadAlbumTracksResponse,
+  ProductStatus,
+  bulkCreateAlbumTracks,
+  uploadProductFileDirect,
+} from '@/lib/admin/api/products';
 import { ROUTES } from '@/utils/paths';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
@@ -50,6 +56,38 @@ const initialFormState: BulkUploadForm = {
   duration: '',
   description: '',
 };
+
+const MAX_TRACK_FILE_BYTES = 300 * 1024 * 1024;
+const validAudioTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/flac', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/ogg'];
+
+// Browsers report audio mimetypes inconsistently (e.g. .mp3 usually comes
+// back as audio/mpeg, .m4a varies by OS) — fall back to the extension so
+// the presigned upload always gets a type the storage service will accept.
+function resolveAudioContentType(file: File): string {
+  if (validAudioTypes.includes(file.type)) return file.type;
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  const byExt: Record<string, string> = {
+    mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/x-m4a',
+    aac: 'audio/aac', ogg: 'audio/ogg', flac: 'audio/flac',
+  };
+  return byExt[ext || ''] || file.type || 'application/octet-stream';
+}
+
+// Uploads run with limited concurrency instead of all at once — a folder of
+// 20+ tracks would otherwise open 20+ simultaneous connections, which is
+// both easy to trip a rate limit on and hard to show real progress for.
+async function uploadWithConcurrency<T, R>(items: T[], limit: number, worker: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  async function runNext(): Promise<void> {
+    const index = cursor++;
+    if (index >= items.length) return;
+    results[index] = await worker(items[index], index);
+    await runNext();
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, runNext));
+  return results;
+}
 
 type FileWithRelativePath = File & { webkitRelativePath?: string };
 
@@ -121,7 +159,8 @@ export default function BulkUploadTracksPage() {
   const [isExtractingDurations, setIsExtractingDurations] = useState(false);
 
   const { data: albumCovers, isLoading: isLoadingAlbumCovers } = useGetAlbumCovers();
-  const { mutateAsync: bulkUploadTracks, isPending } = useBulkUploadAlbumTracks();
+  const [isPending, setIsPending] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
 
   useEffect(() => {
     if (!folderInputRef.current) return;
@@ -149,7 +188,23 @@ export default function BulkUploadTracksPage() {
       return;
     }
 
-    const sortedFiles = sortByRelativePath(audioFiles);
+    const oversized = audioFiles.filter(file => file.size > MAX_TRACK_FILE_BYTES);
+    if (oversized.length) {
+      enqueueSnackbar(
+        `${oversized.length} file(s) are over ${MAX_TRACK_FILE_BYTES / (1024 * 1024)}MB and were skipped: ${oversized.map(f => f.name).join(', ')}`,
+        { variant: 'warning' },
+      );
+    }
+    const sizedFiles = audioFiles.filter(file => file.size <= MAX_TRACK_FILE_BYTES);
+    if (!sizedFiles.length) {
+      setSelectedFiles([]);
+      setSelectedFolderName('');
+      setDurationsByFile({});
+      setDurationExtractionFailures([]);
+      return;
+    }
+
+    const sortedFiles = sortByRelativePath(sizedFiles);
     setSelectedFiles(sortedFiles);
 
     const firstPath = (sortedFiles[0] as FileWithRelativePath).webkitRelativePath || '';
@@ -196,28 +251,41 @@ export default function BulkUploadTracksPage() {
       return;
     }
 
-    const body = new FormData();
-    body.append('albumId', form.albumId);
-    body.append('price', form.price);
-    body.append('albumPrice', form.albumPrice);
-    body.append('categories', form.categories);
-    body.append('tags', form.tags);
-    body.append('skuPrefix', form.skuPrefix);
-    body.append('startOrder', form.startOrder);
-    body.append('status', form.status);
-    body.append('isActive', String(form.isActive));
-    body.append('duration', form.duration);
-    body.append('description', form.description);
-    if (Object.keys(durationsByFile).length > 0) {
-      body.append('durationsByFile', JSON.stringify(durationsByFile));
+    setIsPending(true);
+    setUploadProgress({ done: 0, total: selectedFiles.length });
+    try {
+      // Every track uploads straight to storage from the browser (limited
+      // concurrency, with progress) — this request only carries the
+      // resulting keys, so it can't hit Vercel's request-size limit no
+      // matter how large the folder is.
+      const tracks = await uploadWithConcurrency(selectedFiles, 3, async file => {
+        const fileName = getUploadFileName(file);
+        const { key } = await uploadProductFileDirect(file, resolveAudioContentType(file));
+        setUploadProgress(prev => (prev ? { ...prev, done: prev.done + 1 } : prev));
+        return { key, fileName, duration: durationsByFile[fileName] };
+      });
+
+      const response = await bulkCreateAlbumTracks({
+        albumId: form.albumId,
+        price: form.price,
+        albumPrice: form.albumPrice,
+        categories: form.categories,
+        tags: form.tags,
+        skuPrefix: form.skuPrefix,
+        startOrder: form.startOrder,
+        status: form.status,
+        isActive: form.isActive,
+        duration: form.duration,
+        description: form.description,
+        tracks,
+      });
+      setUploadResult(response.data);
+    } catch (error) {
+      enqueueSnackbar(error instanceof Error ? error.message : 'Failed to upload tracks', { variant: 'error' });
+    } finally {
+      setIsPending(false);
+      setUploadProgress(null);
     }
-
-    selectedFiles.forEach(file => {
-      body.append('audios', file, getUploadFileName(file));
-    });
-
-    const response = await bulkUploadTracks(body);
-    setUploadResult(response.data);
   };
 
   return (
@@ -416,7 +484,11 @@ export default function BulkUploadTracksPage() {
               mt: 1,
             }}
           >
-            {isExtractingDurations ? 'Processing Metadata...' : isPending ? 'Uploading Tracks...' : 'Upload Folder'}
+            {isExtractingDurations
+              ? 'Processing Metadata...'
+              : isPending
+                ? `Uploading Tracks... ${uploadProgress ? `(${uploadProgress.done}/${uploadProgress.total})` : ''}`
+                : 'Upload Folder'}
           </Button>
         </Box>
       </Paper>

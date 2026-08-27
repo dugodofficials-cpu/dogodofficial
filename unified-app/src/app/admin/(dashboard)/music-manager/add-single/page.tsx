@@ -1,11 +1,13 @@
 'use client';
 
-import { useCreateProduct, useGetAlbumCovers } from '@/hooks/admin/products';
+import { useGetAlbumCovers } from '@/hooks/admin/products';
 import {
   CreateProductDto,
   AlbumCover,
   ProductStatus,
   ProductType,
+  createProduct,
+  uploadProductFileDirect,
 } from '@/lib/admin/api/products';
 import { singleFormSchema, type SingleFormData } from '@/lib/admin/validations/music';
 import { ROUTES } from '@/utils/paths';
@@ -22,8 +24,26 @@ import {
   Typography,
 } from '@mui/material';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { enqueueSnackbar } from 'notistack';
+
+const MAX_AUDIO_FILE_BYTES = 300 * 1024 * 1024;
+const validAudioTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/flac', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/ogg'];
+
+// Browsers report audio mimetypes inconsistently (e.g. .mp3 usually comes
+// back as audio/mpeg, .m4a varies by OS) — fall back to the extension so
+// the presigned upload always gets a type the storage service will accept.
+const resolveAudioContentType = (file: File): string => {
+  if (validAudioTypes.includes(file.type)) return file.type;
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  const byExt: Record<string, string> = {
+    mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/x-m4a',
+    aac: 'audio/aac', ogg: 'audio/ogg', flac: 'audio/flac',
+  };
+  return byExt[ext || ''] || file.type || 'application/octet-stream';
+};
 
 export default function AddSinglePage() {
   const { data: albumCovers, isLoading: isLoadingAlbumCovers } =
@@ -55,9 +75,8 @@ export default function AddSinglePage() {
     },
   });
 
-  const { mutate: addSingleMutation, isPending } = useCreateProduct(
-    ROUTES.DASHBOARD.MUSIC_MANAGER.HOME,
-  );
+  const [isPending, setIsPending] = useState(false);
+  const router = useRouter();
 
   const handleFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -66,6 +85,10 @@ export default function AddSinglePage() {
     const file = event.target.files?.[0];
     if (file) {
       if (type === 'audio') {
+        if (file.size > MAX_AUDIO_FILE_BYTES) {
+          enqueueSnackbar(`Audio file must be under ${MAX_AUDIO_FILE_BYTES / (1024 * 1024)}MB`, { variant: 'error' });
+          return;
+        }
         setSelectedFileName(file.name);
         setUploadedFiles((prev) => ({ ...prev, audio: file }));
         setValue('audioFile', file.name);
@@ -74,37 +97,37 @@ export default function AddSinglePage() {
   };
 
   const onSubmit = async (data: SingleFormData) => {
-    console.log(data);
+    if (!uploadedFiles.audio) {
+      enqueueSnackbar('Please add an audio file', { variant: 'error' });
+      return;
+    }
+    setIsPending(true);
     try {
-      const formData = new FormData();
-
-      Object.entries(data).forEach(([key, value]) => {
-        if (value !== undefined) {
-          const stringValue =
-            typeof value === 'boolean' ? value.toString() : value;
-          formData.append(key, stringValue);
-        }
-      });
-
-      if (uploadedFiles.audio) {
-        formData.append('audio', uploadedFiles.audio);
-      }
-      if (uploadedFiles.cover) {
-        formData.append('cover', uploadedFiles.cover);
-      }
-
-      formData.append('type', ProductType.DIGITAL);
-      formData.append('status', ProductStatus.DRAFT);
-      formData.append('albumPrice', '1000');
-      formData.append(
-        'album',
-        albumCovers?.data?.find((cover) => cover.id === data.albumId)?.title ||
-          '',
+      // Uploads straight to storage from the browser — this request never
+      // carries the audio bytes, so it can't hit Vercel's request-size
+      // limit no matter how large the track is.
+      const { key: audioKey } = await uploadProductFileDirect(
+        uploadedFiles.audio,
+        resolveAudioContentType(uploadedFiles.audio),
       );
 
-      addSingleMutation(formData as unknown as CreateProductDto);
+      await createProduct({
+        ...data,
+        type: ProductType.DIGITAL,
+        status: ProductStatus.DRAFT,
+        albumPrice: '1000',
+        album:
+          albumCovers?.data?.find((cover) => cover.id === data.albumId)?.title ||
+          '',
+        digitalDeliveryInfo: { downloadUrl: audioKey },
+      } as unknown as CreateProductDto);
+
+      enqueueSnackbar('Song created successfully', { variant: 'success' });
+      router.push(ROUTES.DASHBOARD.MUSIC_MANAGER.HOME);
     } catch (error) {
-      console.error('Error creating product:', error);
+      enqueueSnackbar(error instanceof Error ? error.message : 'Failed to create song', { variant: 'error' });
+    } finally {
+      setIsPending(false);
     }
   };
 

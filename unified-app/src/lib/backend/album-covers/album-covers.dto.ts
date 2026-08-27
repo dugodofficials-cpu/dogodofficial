@@ -14,4 +14,10 @@ export class UpdateAlbumCoverDto extends CreateAlbumCoverDto {
   public description: string;
   @IsOptional()
   public image: Express.Multer.File;
+  // Set directly when the cover image was already uploaded to storage via a
+  // presigned URL (see products.controller.ts's getUploadUrl) instead of
+  // being attached as a multer file on this request.
+  @IsOptional()
+  @IsString()
+  public imageUrl?: string;
 }

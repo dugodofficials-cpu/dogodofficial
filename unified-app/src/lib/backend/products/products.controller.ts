@@ -26,7 +26,10 @@ const UPLOAD_KINDS: Record<string, { contentTypes: string[]; folder: string; max
     maxBytes: 200 * 1024 * 1024, // 200MB — a real EPUB/PDF with embedded art can be sizeable
   },
   audio: {
-    contentTypes: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/flac', 'audio/mp4', 'audio/aac', 'audio/ogg'],
+    contentTypes: [
+      'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/flac',
+      'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/ogg',
+    ],
     folder: 'products/media',
     maxBytes: 300 * 1024 * 1024, // 300MB — lossless masters run large
   },
@@ -377,12 +380,35 @@ class ProductsController {
 
   public bulkUploadAlbumTracks = async (req: RequestWithUser, res: Response, next: NextFunction): Promise<void> => {
     try {
+      // Two ways a track's audio can reach this endpoint:
+      // 1. Legacy: raw multipart files under "audios" — a real request body
+      //    with every track's bytes in it, which is exactly what 413s on
+      //    Vercel once the folder is more than a track or two.
+      // 2. Direct upload: the browser already PUT each file straight to
+      //    storage via a presigned URL (see getUploadUrl), and this request
+      //    just carries the resulting {key, fileName, duration} per track —
+      //    small JSON regardless of how many tracks or how large they are.
       const allFiles = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
-      const audioFiles = (allFiles?.audios || []).filter(file => file.mimetype.startsWith('audio/'));
+      const uploadedAudioFiles = (allFiles?.audios || []).filter(file => file.mimetype.startsWith('audio/'));
+      const preUploadedTracks = Array.isArray(req.body?.tracks)
+        ? (req.body.tracks as Array<{ key: string; fileName: string; duration?: string }>)
+        : [];
 
-      if (!audioFiles.length) {
-        throw new HttpException(400, 'No audio files uploaded. Use the "audios" field with one or more tracks.');
+      if (!uploadedAudioFiles.length && !preUploadedTracks.length) {
+        throw new HttpException(400, 'No audio files uploaded. Use the "audios" field, or a "tracks" array of pre-uploaded { key, fileName }.');
       }
+
+      type TrackSource = { fileName: string; duration?: string; resolveKey: (folder: string) => Promise<string> };
+      const sources: TrackSource[] = uploadedAudioFiles.length
+        ? uploadedAudioFiles.map(file => ({
+            fileName: file.originalname || file.filename,
+            resolveKey: async (folder: string) => (await s3Service.uploadFile(file, folder)).key,
+          }))
+        : preUploadedTracks.map(track => ({
+            fileName: track.fileName,
+            duration: track.duration,
+            resolveKey: async () => track.key,
+          }));
 
       const albumId = (req.body?.albumId || '').toString().trim();
       if (!albumId) {
@@ -427,22 +453,20 @@ class ProductsController {
       const descriptionTemplate = (req.body?.description || '').toString().trim();
       const skuPrefix = this.buildSkuPrefix(req.body?.skuPrefix?.toString(), albumCover.title);
 
-      const sortedFiles = [...audioFiles].sort((a, b) => {
-        const aPath = a.originalname || a.filename;
-        const bPath = b.originalname || b.filename;
-        return aPath.localeCompare(bPath, undefined, { numeric: true, sensitivity: 'base' });
-      });
+      const sortedSources = [...sources].sort((a, b) =>
+        a.fileName.localeCompare(b.fileName, undefined, { numeric: true, sensitivity: 'base' }),
+      );
 
       const created: Array<{ id: string; name: string; sku: string; order: number }> = [];
       const failed: Array<{ fileName: string; reason: string }> = [];
 
-      for (const [index, file] of sortedFiles.entries()) {
-        const trackName = this.extractTrackName(file.originalname || file.filename);
-        const uploadName = file.originalname || file.filename;
+      for (const [index, source] of sortedSources.entries()) {
+        const trackName = this.extractTrackName(source.fileName);
         const order = initialOrder + index;
         const trackDuration =
-          durationsByFile[uploadName] ||
-          durationsByFile[this.getBaseName(uploadName)] ||
+          source.duration ||
+          durationsByFile[source.fileName] ||
+          durationsByFile[this.getBaseName(source.fileName)] ||
           duration;
 
         try {
@@ -470,7 +494,7 @@ class ProductsController {
 
           const createdProduct = await this.productService.createProduct(productData);
           const folder = `products/${createdProduct._id}/media`;
-          const { key } = await s3Service.uploadFile(file, folder);
+          const key = await source.resolveKey(folder);
 
           const updateData: UpdateDigitalDeliveryInfoDto = {
             digitalDeliveryInfo: {
@@ -492,7 +516,7 @@ class ProductsController {
           });
         } catch (error) {
           failed.push({
-            fileName: file.originalname,
+            fileName: source.fileName,
             reason: error instanceof Error ? error.message : 'Unknown error',
           });
         }
@@ -500,12 +524,12 @@ class ProductsController {
 
       res.status(201).json({
         message: failed.length
-          ? `Uploaded ${created.length}/${sortedFiles.length} tracks.`
+          ? `Uploaded ${created.length}/${sortedSources.length} tracks.`
           : `Uploaded ${created.length} tracks successfully.`,
         data: {
           albumId: albumCover.id,
           albumTitle: albumCover.title,
-          totalReceived: sortedFiles.length,
+          totalReceived: sortedSources.length,
           createdCount: created.length,
           failedCount: failed.length,
           created,

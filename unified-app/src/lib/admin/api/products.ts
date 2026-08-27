@@ -321,6 +321,33 @@ export const bulkUploadAlbumTracks = (data: FormData) => {
   });
 };
 
+export interface BulkCreateAlbumTracksPayload {
+  albumId: string;
+  price: string;
+  albumPrice?: string;
+  categories: string;
+  tags?: string;
+  skuPrefix?: string;
+  startOrder?: string;
+  status: string;
+  isActive: boolean;
+  duration?: string;
+  description?: string;
+  tracks: Array<{ key: string; fileName: string; duration?: string }>;
+}
+
+// Same endpoint as bulkUploadAlbumTracks, but every track's audio has
+// already been uploaded directly to storage (see uploadProductFileDirect) —
+// this request only carries the resulting keys, never the audio bytes, so
+// it can't hit Vercel's request-size limit no matter how many tracks or how
+// large the folder is.
+export const bulkCreateAlbumTracks = (data: BulkCreateAlbumTracksPayload) => {
+  return apiClient<BulkUploadAlbumTracksResponse>(`/products/bulk-upload`, {
+    method: 'POST',
+    body: data,
+  });
+};
+
 export const updateProduct = (id: string, data: Partial<CreateProductDto>) => {
   return apiClient<ProductById>(`/products/${id}`, {
     method: 'PUT',
@@ -349,11 +376,9 @@ export interface AlbumCoverResponse {
 
 }
 
-export const uploadAlbumCover = (data: FormData) => {
+export const uploadAlbumCover = (data: FormData | { title: string; description?: string; imageUrl: string }) => {
   return apiClient<AlbumCover>(`/album-cover`, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
+    headers: data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
     method: 'POST',
     body: data,
   });

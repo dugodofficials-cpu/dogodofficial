@@ -153,7 +153,7 @@ export const useUpdateProduct = () => {
 
 export const useUploadAlbumCover = () => {
   const queryClient = useQueryClient();
-  return useMutation<AlbumCover, Error, FormData>({
+  return useMutation<AlbumCover, Error, FormData | { title: string; description?: string; imageUrl: string }>({
     mutationFn: (data) => uploadAlbumCover(data),
     onSuccess: () => {
       enqueueSnackbar('Album cover uploaded successfully', { variant: 'success' });

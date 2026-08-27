@@ -23,6 +23,7 @@ class UsersRoute implements Routes {
     this.router.put(`${this.path}/:id`, [authMiddleware, selfOrPermission(Permission.UPDATE_USER)], validationMiddleware(CreateUserDto, 'body', true), this.usersController.updateUser);
     this.router.delete(`${this.path}/:id`, [authMiddleware, hasPermission(Permission.DELETE_USER)], this.usersController.deleteUser);
     this.router.post(`${this.path}/:id/profile-picture`, [authMiddleware, selfOrPermission(Permission.UPDATE_USER)], handleMulterUpload, this.usersController.uploadProfilePicture);
+    this.router.post(`${this.path}/:id/profile-picture-upload-url`, [authMiddleware, selfOrPermission(Permission.UPDATE_USER)], this.usersController.getProfilePictureUploadUrl);
   }
 }
 export default UsersRoute;
