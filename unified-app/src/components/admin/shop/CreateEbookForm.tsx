@@ -25,11 +25,13 @@ import {
   CreateProductDto,
   ProductStatus,
   ProductType,
+  createProduct,
+  uploadProductFileDirect,
 } from '@/lib/admin/api/products';
-import { useCreateProduct } from '@/hooks/admin/products';
 import { enqueueSnackbar } from 'notistack';
 import { ROUTES } from '@/utils/paths';
 import { productCategories } from '@/lib/admin/utils/categories';
+import { useRouter } from 'next/navigation';
 
 const ebookSchema = z.object({
   name: z.string().min(3, 'Ebook name must be at least 3 characters'),
@@ -46,15 +48,17 @@ const ebookSchema = z.object({
 
 type EbookFormData = z.infer<typeof ebookSchema>;
 
+const MAX_COVER_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_EBOOK_FILE_BYTES = 200 * 1024 * 1024;
+
 export function CreateEbookForm() {
   const [coverImage, setCoverImage] = React.useState<File | null>(null);
   const [ebookFile, setEbookFile] = React.useState<File | null>(null);
   const [coverImagePreview, setCoverImagePreview] = React.useState<
     string | null
   >(null);
-
-  const { mutate: createProduct, isPending: isCreatingProduct } =
-    useCreateProduct(ROUTES.DASHBOARD.SHOP.HOME);
+  const [isCreatingProduct, setIsCreatingProduct] = React.useState(false);
+  const router = useRouter();
 
   const {
     control,
@@ -85,6 +89,10 @@ export function CreateEbookForm() {
         enqueueSnackbar('Please upload an image file', { variant: 'error' });
         return;
       }
+      if (file.size > MAX_COVER_IMAGE_BYTES) {
+        enqueueSnackbar(`Cover image must be under ${MAX_COVER_IMAGE_BYTES / (1024 * 1024)}MB`, { variant: 'error' });
+        return;
+      }
       setCoverImage(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -94,19 +102,32 @@ export function CreateEbookForm() {
     }
   };
 
+  const validEbookTypes = [
+    'application/pdf',
+    'application/epub+zip',
+    'application/x-mobipocket-ebook',
+    'application/vnd.amazon.ebook',
+  ];
+
+  // Some browsers report an empty/generic mimetype for .mobi/.epub files —
+  // fall back to the extension so the presigned upload still gets a real,
+  // storage-accepted content type instead of '' or application/octet-stream.
+  const resolveEbookContentType = (file: File): string => {
+    if (validEbookTypes.includes(file.type)) return file.type;
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') return 'application/pdf';
+    if (ext === 'epub') return 'application/epub+zip';
+    if (ext === 'mobi') return 'application/x-mobipocket-ebook';
+    return file.type || 'application/octet-stream';
+  };
+
   const handleEbookFileUpload = (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (file) {
-      const validTypes = [
-        'application/pdf',
-        'application/epub+zip',
-        'application/x-mobipocket-ebook',
-        'application/vnd.amazon.ebook',
-      ];
       if (
-        !validTypes.includes(file.type) &&
+        !validEbookTypes.includes(file.type) &&
         !file.name.match(/\.(pdf|epub|mobi)$/i)
       ) {
         enqueueSnackbar('Please upload a valid ebook file (PDF, EPUB, MOBI)', {
@@ -114,52 +135,60 @@ export function CreateEbookForm() {
         });
         return;
       }
+      if (file.size > MAX_EBOOK_FILE_BYTES) {
+        enqueueSnackbar(`Ebook file must be under ${MAX_EBOOK_FILE_BYTES / (1024 * 1024)}MB`, { variant: 'error' });
+        return;
+      }
       setEbookFile(file);
     }
   };
 
   const onSubmit = async (data: EbookFormData) => {
-    const normalizedData: EbookFormData = {
-      ...data,
-      sku: data.sku.trim().toUpperCase(),
-    };
-    const formData = new FormData();
-
-    Object.entries(normalizedData).forEach(([key, value]) => {
-      if (key === 'categories' && Array.isArray(value)) {
-        value.forEach((item) => formData.append('categories', item));
-      } else if (key === 'images' && Array.isArray(value)) {
-        value.forEach((item) => formData.append('images', item));
-      } else if (value !== undefined && value !== null) {
-        formData.append(key, value.toString());
-      }
-    });
-
-    formData.append('type', ProductType.EBOOK);
-
-    if (coverImage) {
-      formData.append('bookCoverArt', coverImage);
-      formData.append('images', coverImage);
+    if (!coverImage || !ebookFile) {
+      enqueueSnackbar('Please add a cover image and an ebook file', { variant: 'error' });
+      return;
     }
+    setIsCreatingProduct(true);
+    try {
+      // Both files upload straight to storage from the browser first — this
+      // request never carries the file bytes, so it can't hit Vercel's
+      // request-size limit no matter how large the ebook file is.
+      const [coverUpload, ebookUpload] = await Promise.all([
+        uploadProductFileDirect(coverImage),
+        uploadProductFileDirect(ebookFile, resolveEbookContentType(ebookFile)),
+      ]);
 
-    if (ebookFile) {
-      formData.append('downloadUrl', ebookFile);
+      await createProduct({
+        name: data.name,
+        description: data.description,
+        sku: data.sku.trim().toUpperCase(),
+        price: data.price,
+        categories: data.categories,
+        status: data.status,
+        tags: data.tags,
+        isActive: data.isActive,
+        type: ProductType.EBOOK,
+        images: [coverUpload.key],
+        ebookDeliveryInfo: {
+          downloadUrl: ebookUpload.key,
+          bookCoverArt: coverUpload.key,
+        },
+      } as unknown as CreateProductDto);
+
+      enqueueSnackbar('Ebook created successfully', { variant: 'success' });
+      reset();
+      setCoverImage(null);
+      setEbookFile(null);
+      setCoverImagePreview(null);
+      router.push(ROUTES.DASHBOARD.SHOP.HOME);
+    } catch (error) {
+      enqueueSnackbar(
+        error instanceof Error ? error.message : 'Failed to create ebook. SKU may already exist.',
+        { variant: 'error' },
+      );
+    } finally {
+      setIsCreatingProduct(false);
     }
-
-    createProduct(formData as unknown as CreateProductDto, {
-      onSuccess: () => {
-        enqueueSnackbar('Ebook created successfully', { variant: 'success' });
-        reset();
-        setCoverImage(null);
-        setEbookFile(null);
-        setCoverImagePreview(null);
-      },
-      onError: (error) => {
-        enqueueSnackbar(error.message || 'Failed to create ebook. SKU may already exist.', {
-          variant: 'error',
-        });
-      },
-    });
   };
 
   return (

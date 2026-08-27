@@ -1,6 +1,6 @@
 'use client';
 
-import { Product, ProductStatus } from '@/lib/admin/api/products';
+import { Product, ProductStatus, uploadProductFileDirect, updateProduct } from '@/lib/admin/api/products';
 import { productCategories } from '@/lib/admin/utils/categories';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -24,7 +24,24 @@ import Image from 'next/image';
 import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useUploadProductMedia } from '@/hooks/admin/products';
+import { enqueueSnackbar } from 'notistack';
+
+const MAX_COVER_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_EBOOK_FILE_BYTES = 200 * 1024 * 1024;
+const validEbookTypes = [
+  'application/pdf',
+  'application/epub+zip',
+  'application/x-mobipocket-ebook',
+  'application/vnd.amazon.ebook',
+];
+const resolveEbookContentType = (file: File): string => {
+  if (validEbookTypes.includes(file.type)) return file.type;
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (ext === 'pdf') return 'application/pdf';
+  if (ext === 'epub') return 'application/epub+zip';
+  if (ext === 'mobi') return 'application/x-mobipocket-ebook';
+  return file.type || 'application/octet-stream';
+};
 
 const ebookSchema = z.object({
   name: z.string().min(3, 'Ebook name must be at least 3 characters'),
@@ -54,10 +71,9 @@ export function EditEbookModal({
   onSave,
   isLoading,
 }: EditEbookModalProps) {
-  const { mutateAsync: uploadProductMedia, isPending: isUploadingMedia } = useUploadProductMedia();
-
   const [newCoverImage, setNewCoverImage] = React.useState<File | null>(null);
   const [newEbookFile, setNewEbookFile] = React.useState<File | null>(null);
+  const [isUploadingMedia, setIsUploadingMedia] = React.useState(false);
 
   const {
     control,
@@ -105,26 +121,44 @@ export function EditEbookModal({
             .filter(Boolean)
         : [];
 
+      let images = product.images;
+      let ebookDeliveryInfo = product.ebookDeliveryInfo;
+
+      if (newCoverImage || newEbookFile) {
+        setIsUploadingMedia(true);
+        try {
+          // Both files upload straight to storage from the browser — this
+          // never routes the file bytes through this app's own API, so it
+          // can't hit Vercel's request-size limit no matter how large the
+          // ebook file is.
+          const [coverUpload, ebookUpload] = await Promise.all([
+            newCoverImage ? uploadProductFileDirect(newCoverImage) : Promise.resolve(null),
+            newEbookFile ? uploadProductFileDirect(newEbookFile, resolveEbookContentType(newEbookFile)) : Promise.resolve(null),
+          ]);
+          const coverKey = coverUpload?.key ?? product.images?.[0];
+          const ebookKey = ebookUpload?.key ?? product.ebookDeliveryInfo?.downloadUrl;
+          images = coverKey ? [coverKey] : product.images;
+          ebookDeliveryInfo = { ...product.ebookDeliveryInfo, downloadUrl: ebookKey, bookCoverArt: coverKey };
+          await updateProduct(product._id, { images, ebookDeliveryInfo });
+        } catch (error) {
+          enqueueSnackbar(error instanceof Error ? error.message : 'Failed to upload ebook files', { variant: 'error' });
+          setIsUploadingMedia(false);
+          return;
+        }
+        setIsUploadingMedia(false);
+      }
+
       const updatedProduct = {
         ...product,
         ...data,
         price: Number(data.price),
         tags: tagsArray,
+        images,
+        ebookDeliveryInfo,
         bundleItems: undefined,
         bundlePrice: undefined,
         bundleTier: undefined,
       };
-
-      if (newCoverImage || newEbookFile) {
-        const mediaFormData = new FormData();
-        if (newCoverImage) {
-          mediaFormData.append('bookCoverArt', newCoverImage);
-        }
-        if (newEbookFile) {
-          mediaFormData.append('downloadUrl', newEbookFile);
-        }
-        await uploadProductMedia({ productId: product._id, data: mediaFormData });
-      }
 
       onSave(updatedProduct as Product);
     }
@@ -157,7 +191,14 @@ export function EditEbookModal({
               <input
                 type="file"
                 accept=".pdf,.epub,.mobi,application/pdf,application/epub+zip,application/x-mobipocket-ebook,application/vnd.amazon.ebook"
-                onChange={(e) => setNewEbookFile(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (file && file.size > MAX_EBOOK_FILE_BYTES) {
+                    enqueueSnackbar(`Ebook file must be under ${MAX_EBOOK_FILE_BYTES / (1024 * 1024)}MB`, { variant: 'error' });
+                    return;
+                  }
+                  setNewEbookFile(file);
+                }}
               />
               {newEbookFile ? (
                 <Typography variant="caption" color="text.secondary">
@@ -171,7 +212,14 @@ export function EditEbookModal({
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/jpg"
-                onChange={(e) => setNewCoverImage(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (file && file.size > MAX_COVER_IMAGE_BYTES) {
+                    enqueueSnackbar(`Cover image must be under ${MAX_COVER_IMAGE_BYTES / (1024 * 1024)}MB`, { variant: 'error' });
+                    return;
+                  }
+                  setNewCoverImage(file);
+                }}
               />
               {newCoverImage ? (
                 <Typography variant="caption" color="text.secondary">

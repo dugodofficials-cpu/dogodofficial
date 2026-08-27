@@ -14,32 +14,49 @@ import { AlbumCoverModel } from '@backend/album-covers/album-covers.model';
 import RoleService from '@backend/roles/roles.service';
 import { Permission } from '@backend/roles/roles.interface';
 const roleService = new RoleService();
-const ALLOWED_UPLOAD_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const MAX_DIRECT_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB — generous for a cover photo, not a raw video/album dump
+const UPLOAD_KINDS: Record<string, { contentTypes: string[]; folder: string; maxBytes: number }> = {
+  image: {
+    contentTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+    folder: 'products/covers',
+    maxBytes: 10 * 1024 * 1024, // 10MB — generous for a cover photo, not a raw video dump
+  },
+  ebook: {
+    contentTypes: ['application/pdf', 'application/epub+zip', 'application/x-mobipocket-ebook', 'application/vnd.amazon.ebook'],
+    folder: 'products/ebooks',
+    maxBytes: 200 * 1024 * 1024, // 200MB — a real EPUB/PDF with embedded art can be sizeable
+  },
+  audio: {
+    contentTypes: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/flac', 'audio/mp4', 'audio/aac', 'audio/ogg'],
+    folder: 'products/media',
+    maxBytes: 300 * 1024 * 1024, // 300MB — lossless masters run large
+  },
+};
 
 class ProductsController {
   public productService = new ProductService();
   private emailService = new EmailService();
   private readonly skuFallbackPrefix = 'ALBUM';
-  // Product cover images upload directly to storage from the browser via a
-  // presigned URL, instead of through this Vercel function — see
-  // s3Public.ts's getPresignedUploadUrl for why (the function's request body
-  // is capped around 4.5MB by the platform itself, which any real photo can
-  // exceed regardless of multer's own, much larger, limit).
+  // Product files (cover images, ebook files, audio) upload directly to
+  // storage from the browser via a presigned URL, instead of through this
+  // Vercel function — see s3Public.ts's getPresignedUploadUrl for why (the
+  // function's request body is capped around 4.5MB by the platform itself,
+  // which a real photo, let alone an ebook or audio file, can easily exceed
+  // regardless of multer's own, much larger, limit).
   public getUploadUrl = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { filename, contentType, sizeBytes } = req.body || {};
       if (!filename || typeof filename !== 'string') {
         throw new HttpException(400, 'filename is required');
       }
-      if (!ALLOWED_UPLOAD_CONTENT_TYPES.includes(contentType)) {
-        throw new HttpException(400, `contentType must be one of: ${ALLOWED_UPLOAD_CONTENT_TYPES.join(', ')}`);
+      const kind = Object.values(UPLOAD_KINDS).find(k => k.contentTypes.includes(contentType));
+      if (!kind) {
+        throw new HttpException(400, 'Unsupported contentType for direct upload');
       }
-      if (typeof sizeBytes === 'number' && sizeBytes > MAX_DIRECT_UPLOAD_BYTES) {
-        throw new HttpException(400, `File must be under ${MAX_DIRECT_UPLOAD_BYTES / (1024 * 1024)}MB`);
+      if (typeof sizeBytes === 'number' && sizeBytes > kind.maxBytes) {
+        throw new HttpException(400, `File must be under ${kind.maxBytes / (1024 * 1024)}MB`);
       }
       const safeName = filename.toString().replace(/[^a-zA-Z0-9_.-]/g, '_').slice(-120);
-      const key = `products/covers/${Date.now()}-${safeName}`;
+      const key = `${kind.folder}/${Date.now()}-${safeName}`;
       const uploadUrl = await s3PublicService.getPresignedUploadUrl(key, contentType);
       res.status(200).json({ data: { key, uploadUrl }, message: 'upload url generated' });
     } catch (error) {

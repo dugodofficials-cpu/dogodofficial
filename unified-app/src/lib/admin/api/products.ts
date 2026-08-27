@@ -182,6 +182,7 @@ export interface CreateProductDto {
   lowStockThreshold?: number;
 
   digitalDeliveryInfo?: DigitalDeliveryInfo;
+  ebookDeliveryInfo?: EbookDeliveryInfo;
 
   bundleItems?: BundleItem[];
   bundlePrice?: number;
@@ -252,26 +253,35 @@ export const getProductById = (id: string): Promise<ProductById> => {
   return apiClient<ProductById>(`/products/${id}`);
 };
 
-// Uploads a product cover image directly to storage from the browser,
-// bypassing this app's own API route entirely for the file bytes. Vercel
-// caps a serverless function's request body around 4.5MB at the platform
-// level — a real, uncompressed photo routinely exceeds that, which is what
-// was causing "/api/products" to fail with 413 on product creation.
-export const uploadProductImageDirect = async (file: File): Promise<{ key: string }> => {
+// Uploads a product file (cover image, ebook, or audio) directly to storage
+// from the browser, bypassing this app's own API route entirely for the file
+// bytes. Vercel caps a serverless function's request body around 4.5MB at
+// the platform level — a real photo, let alone an ebook or audio file,
+// routinely exceeds that, which is what was causing "/api/products" to fail
+// with 413 on product/ebook creation.
+export const uploadProductFileDirect = async (file: File, contentTypeOverride?: string): Promise<{ key: string }> => {
+  // Some browsers report an empty/generic mimetype for certain file types
+  // (e.g. .mobi); contentTypeOverride lets a caller resolve the real type
+  // from the file extension instead. The same value must be used for both
+  // the presign request and the actual PUT's Content-Type header, or the
+  // storage service will reject the upload as a signature mismatch.
+  const contentType = contentTypeOverride || file.type;
   const { data } = await apiClient<{ data: { key: string; uploadUrl: string } }>(`/products/upload-url`, {
     method: 'POST',
-    body: { filename: file.name, contentType: file.type, sizeBytes: file.size },
+    body: { filename: file.name, contentType, sizeBytes: file.size },
   });
   const putResponse = await fetch(data.uploadUrl, {
     method: 'PUT',
-    headers: { 'Content-Type': file.type },
+    headers: { 'Content-Type': contentType },
     body: file,
   });
   if (!putResponse.ok) {
-    throw new Error('Failed to upload image to storage');
+    throw new Error(`Failed to upload "${file.name}" to storage`);
   }
   return { key: data.key };
 };
+// Back-compat alias — same function, kept for the product-image upload flow.
+export const uploadProductImageDirect = uploadProductFileDirect;
 
 export const createProduct = (data: CreateProductDto) => {
   return apiClient<ProductById>(`/products`, {
