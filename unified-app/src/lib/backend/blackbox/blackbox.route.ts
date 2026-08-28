@@ -15,6 +15,12 @@ class BlackboxRoute implements Routes {
   }
   private initializeRoutes() {
     this.router.post(
+      `${this.path}/questions/upload-url`,
+      authMiddleware,
+      hasPermission(Permission.CREATE_BLACKBOX_QUESTION),
+      this.blackboxController.getQuestionImageUploadUrl
+    );
+    this.router.post(
       `${this.path}/questions`,
       authMiddleware,
       hasPermission(Permission.CREATE_BLACKBOX_QUESTION),

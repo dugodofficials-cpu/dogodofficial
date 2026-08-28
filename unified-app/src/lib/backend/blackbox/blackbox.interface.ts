@@ -5,6 +5,7 @@ export interface BlackboxQuestion {
   answer: string;
   answerType: 'exact' | 'any';
   secret: string;
+  imageUrl?: string;
   order: number;
   isActive: boolean;
   createdAt?: Date;
@@ -73,6 +74,7 @@ export interface CreateQuestionDto {
   answer: string;
   answerType: 'exact' | 'any';
   secret: string;
+  imageUrl?: string;
   order: number;
   isActive?: boolean;
 }
@@ -81,6 +83,7 @@ export interface UpdateQuestionDto {
   answer?: string;
   answerType?: 'exact' | 'any';
   secret?: string;
+  imageUrl?: string;
   order?: number;
   isActive?: boolean;
 }

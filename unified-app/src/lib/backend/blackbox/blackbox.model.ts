@@ -22,6 +22,9 @@ const blackboxQuestionSchema: Schema = new Schema({
     required: true,
     trim: true,
   },
+  imageUrl: {
+    type: String,
+  },
   order: {
     type: Number,
     required: true,

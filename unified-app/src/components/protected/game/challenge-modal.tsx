@@ -5,11 +5,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AnswerQuestionResponse } from '@/lib/api/blackbox';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '@/util/paths';
+import Image from 'next/image';
 
 interface ChallengeModalProps {
   open: boolean;
   onClose: () => void;
   question: string;
+  imageUrl?: string;
   onSubmitAnswer?: (answer: string) => void;
 }
 
@@ -17,6 +19,7 @@ export default function ChallengeModal({
   open,
   onClose,
   question,
+  imageUrl,
   onSubmitAnswer,
 }: ChallengeModalProps) {
   const [answer, setAnswer] = useState('');
@@ -99,6 +102,21 @@ export default function ChallengeModal({
           >
             {question}
           </Typography>
+        )}
+
+        {!!question && imageUrl && (
+          <Box
+            sx={{
+              position: 'relative',
+              width: '100%',
+              maxWidth: '20rem',
+              height: { xs: '12rem', sm: '16rem' },
+              borderRadius: '0.75rem',
+              overflow: 'hidden',
+            }}
+          >
+            <Image src={imageUrl} alt="Clue" fill style={{ objectFit: 'cover' }} />
+          </Box>
         )}
 
         <TextField

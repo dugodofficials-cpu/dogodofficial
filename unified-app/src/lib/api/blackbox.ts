@@ -5,6 +5,7 @@ export interface BlackboxQuestion {
   question: string;
   answer: string;
   secret: string;
+  imageUrl?: string;
   order: number;
   isActive: boolean;
   createdAt: string;

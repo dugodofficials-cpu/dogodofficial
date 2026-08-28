@@ -5,6 +5,7 @@ export interface BlackboxQuestion {
   question: string;
   answer: string;
   secret: string;
+  imageUrl?: string;
   order: number;
   isActive: boolean;
   createdAt: string;
@@ -38,6 +39,7 @@ export interface CreateQuestionDto {
   question: string;
   answer: string;
   secret: string;
+  imageUrl?: string;
   order: number | string;
   isActive?: boolean;
   answerType: 'exact' | 'any';
@@ -47,6 +49,7 @@ export interface UpdateQuestionDto {
   question?: string;
   answer?: string;
   secret?: string;
+  imageUrl?: string;
   order?: number | string;
   isActive?: boolean;
 }
@@ -99,6 +102,24 @@ export async function getBlackboxQuestions(params: GetQuestionsParams = {}) {
 
 export async function getBlackboxQuestionById(id: string) {
   return apiClient<{ data: BlackboxQuestion }>(`blackbox/questions/${id}`);
+}
+
+// Uploads a question's clue image directly to storage from the browser,
+// bypassing this app's own API route entirely for the file bytes.
+export async function uploadQuestionImageDirect(file: File): Promise<{ key: string }> {
+  const { data } = await apiClient<{ data: { key: string; uploadUrl: string } }>('blackbox/questions/upload-url', {
+    method: 'POST',
+    body: { filename: file.name, contentType: file.type, sizeBytes: file.size },
+  });
+  const putResponse = await fetch(data.uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type },
+    body: file,
+  });
+  if (!putResponse.ok) {
+    throw new Error('Failed to upload image to storage');
+  }
+  return { key: data.key };
 }
 
 export async function createBlackboxQuestion(data: CreateQuestionDto) {

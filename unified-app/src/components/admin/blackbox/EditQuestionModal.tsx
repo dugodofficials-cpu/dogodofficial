@@ -1,7 +1,7 @@
 'use client';
 
 import { useUpdateBlackboxQuestion } from '@/hooks/admin/blackbox';
-import { BlackboxQuestion, UpdateQuestionDto } from '@/lib/admin/api/blackbox';
+import { BlackboxQuestion, UpdateQuestionDto, uploadQuestionImageDirect } from '@/lib/admin/api/blackbox';
 import {
   Box,
   Button,
@@ -13,8 +13,13 @@ import {
   FormControlLabel,
   Switch,
   Alert,
+  Typography,
 } from '@mui/material';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { enqueueSnackbar } from 'notistack';
 import React, { useState, useCallback, useEffect } from 'react';
+
+const MAX_QUESTION_IMAGE_BYTES = 10 * 1024 * 1024;
 
 interface EditQuestionModalProps {
   open: boolean;
@@ -29,6 +34,8 @@ export function EditQuestionModal({
 }: EditQuestionModalProps) {
   const [formData, setFormData] = useState<UpdateQuestionDto>({});
   const [errors, setErrors] = useState<Partial<UpdateQuestionDto>>({});
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const updateQuestion = useUpdateBlackboxQuestion();
 
@@ -40,6 +47,7 @@ export function EditQuestionModal({
       order: question.order,
       isActive: question.isActive,
     });
+    setImageFile(null);
     setErrors({});
   }, [question]);
 
@@ -88,12 +96,28 @@ export function EditQuestionModal({
     return Object.keys(newErrors).length === 0;
   }, [formData]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) {
       return;
     }
 
-    updateQuestion.mutate({ id: question._id, data: formData });
+    const payload = { ...formData };
+    if (imageFile) {
+      setIsUploadingImage(true);
+      try {
+        // Uploads straight to storage from the browser — this request never
+        // carries the file bytes, so it can't hit Vercel's request-size limit.
+        const { key } = await uploadQuestionImageDirect(imageFile);
+        payload.imageUrl = key;
+      } catch (error) {
+        enqueueSnackbar(error instanceof Error ? error.message : 'Failed to upload image', { variant: 'error' });
+        setIsUploadingImage(false);
+        return;
+      }
+      setIsUploadingImage(false);
+    }
+
+    updateQuestion.mutate({ id: question._id, data: payload });
     onClose();
   };
 
@@ -159,6 +183,37 @@ export function EditQuestionModal({
             inputProps={{ min: 1 }}
           />
 
+          {question.imageUrl && !imageFile && (
+            <Box>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                Current clue image
+              </Typography>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={question.imageUrl} alt="Question clue" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 4 }} />
+            </Box>
+          )}
+
+          <Button
+            component="label"
+            variant="outlined"
+            startIcon={<CloudUploadIcon />}
+          >
+            {imageFile ? imageFile.name : question.imageUrl ? 'Replace clue image' : 'Upload clue image (optional)'}
+            <input
+              type="file"
+              hidden
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                if (file && file.size > MAX_QUESTION_IMAGE_BYTES) {
+                  enqueueSnackbar(`Image must be under ${MAX_QUESTION_IMAGE_BYTES / (1024 * 1024)}MB`, { variant: 'error' });
+                  return;
+                }
+                setImageFile(file);
+              }}
+            />
+          </Button>
+
           <FormControlLabel
             control={
               <Switch
@@ -184,10 +239,10 @@ export function EditQuestionModal({
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={updateQuestion.isPending}
+          disabled={updateQuestion.isPending || isUploadingImage}
           sx={{ bgcolor: '#2FD65D', '&:hover': { bgcolor: '#2AC152' } }}
         >
-          {updateQuestion.isPending ? 'Updating...' : 'Update Question'}
+          {isUploadingImage ? 'Uploading image...' : updateQuestion.isPending ? 'Updating...' : 'Update Question'}
         </Button>
       </DialogActions>
     </Dialog>

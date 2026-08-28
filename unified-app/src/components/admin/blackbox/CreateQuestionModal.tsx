@@ -1,7 +1,7 @@
 'use client';
 
 import { useCreateBlackboxQuestion } from '@/hooks/admin/blackbox';
-import { CreateQuestionDto } from '@/lib/admin/api/blackbox';
+import { CreateQuestionDto, uploadQuestionImageDirect } from '@/lib/admin/api/blackbox';
 import {
   Box,
   Button,
@@ -14,7 +14,11 @@ import {
   Switch,
   Alert,
 } from '@mui/material';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { enqueueSnackbar } from 'notistack';
 import React, { useState, useCallback } from 'react';
+
+const MAX_QUESTION_IMAGE_BYTES = 10 * 1024 * 1024;
 
 interface CreateQuestionModalProps {
   open: boolean;
@@ -34,6 +38,8 @@ export function CreateQuestionModal({
     answerType: 'exact',
   });
   const [errors, setErrors] = useState<Partial<CreateQuestionDto>>({});
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const createQuestion = useCreateBlackboxQuestion();
 
@@ -79,14 +85,29 @@ export function CreateQuestionModal({
     return Object.keys(newErrors).length === 0;
   }, [formData]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) {
       return;
     }
-    if (formData.answerType === 'any') {
-      formData.answer = '';
+    const payload = { ...formData };
+    if (payload.answerType === 'any') {
+      payload.answer = '';
     }
-    createQuestion.mutate(formData);
+    if (imageFile) {
+      setIsUploadingImage(true);
+      try {
+        // Uploads straight to storage from the browser — this request never
+        // carries the file bytes, so it can't hit Vercel's request-size limit.
+        const { key } = await uploadQuestionImageDirect(imageFile);
+        payload.imageUrl = key;
+      } catch (error) {
+        enqueueSnackbar(error instanceof Error ? error.message : 'Failed to upload image', { variant: 'error' });
+        setIsUploadingImage(false);
+        return;
+      }
+      setIsUploadingImage(false);
+    }
+    createQuestion.mutate(payload);
     setFormData({
       question: '',
       answer: '',
@@ -95,6 +116,7 @@ export function CreateQuestionModal({
       isActive: true,
       answerType: 'exact',
     });
+    setImageFile(null);
     setErrors({});
     onClose();
   };
@@ -108,6 +130,7 @@ export function CreateQuestionModal({
       isActive: true,
       answerType: 'exact',
     });
+    setImageFile(null);
     setErrors({});
     onClose();
   }, [onClose]);
@@ -174,6 +197,27 @@ export function CreateQuestionModal({
             inputProps={{ min: 1 }}
           />
 
+          <Button
+            component="label"
+            variant="outlined"
+            startIcon={<CloudUploadIcon />}
+          >
+            {imageFile ? imageFile.name : 'Upload clue image (optional)'}
+            <input
+              type="file"
+              hidden
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                if (file && file.size > MAX_QUESTION_IMAGE_BYTES) {
+                  enqueueSnackbar(`Image must be under ${MAX_QUESTION_IMAGE_BYTES / (1024 * 1024)}MB`, { variant: 'error' });
+                  return;
+                }
+                setImageFile(file);
+              }}
+            />
+          </Button>
+
           <FormControlLabel
             control={
               <Switch
@@ -215,10 +259,10 @@ export function CreateQuestionModal({
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={createQuestion.isPending}
+          disabled={createQuestion.isPending || isUploadingImage}
           sx={{ bgcolor: '#2FD65D', '&:hover': { bgcolor: '#2AC152' } }}
         >
-          {createQuestion.isPending ? 'Creating...' : 'Create Question'}
+          {isUploadingImage ? 'Uploading image...' : createQuestion.isPending ? 'Creating...' : 'Create Question'}
         </Button>
       </DialogActions>
     </Dialog>

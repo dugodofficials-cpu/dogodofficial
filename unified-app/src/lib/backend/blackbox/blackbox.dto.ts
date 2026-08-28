@@ -15,6 +15,11 @@ export class CreateQuestionDto {
   @IsNotEmpty()
   @MaxLength(1000)
   secret: string;
+  // Storage key, not a URL — resolved to a signed URL at response time, same
+  // as product images (see signPublicUrls middleware).
+  @IsString()
+  @IsOptional()
+  imageUrl?: string;
   @IsNumber()
   @IsNotEmpty()
   @Min(1)
@@ -40,6 +45,9 @@ export class UpdateQuestionDto {
   @IsOptional()
   @MaxLength(1000)
   secret?: string;
+  @IsString()
+  @IsOptional()
+  imageUrl?: string;
   @IsNumber()
   @IsOptional()
   @Min(1)

@@ -4,8 +4,34 @@ import { CreateQuestionDto, UpdateQuestionDto, AnswerQuestionDto, GetQuestionsQu
 import { BlackboxQuestionQueryParams } from '@backend/blackbox/blackbox.interface';
 import { HttpException } from '@backend/exceptions/HttpException';
 import { RequestWithUser } from '@backend/auth/auth.interface';
+import s3PublicService from '@backend/utils/s3Public';
+const QUESTION_IMAGE_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_QUESTION_IMAGE_BYTES = 10 * 1024 * 1024;
 class BlackboxController {
   public blackboxService = new BlackboxService();
+  // A question's clue image uploads directly to storage from the browser
+  // via a presigned URL, instead of through this Vercel function — see
+  // s3Public.ts's getPresignedUploadUrl for why.
+  public getQuestionImageUploadUrl = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { filename, contentType, sizeBytes } = req.body || {};
+      if (!filename || typeof filename !== 'string') {
+        throw new HttpException(400, 'filename is required');
+      }
+      if (!QUESTION_IMAGE_CONTENT_TYPES.includes(contentType)) {
+        throw new HttpException(400, `contentType must be one of: ${QUESTION_IMAGE_CONTENT_TYPES.join(', ')}`);
+      }
+      if (typeof sizeBytes === 'number' && sizeBytes > MAX_QUESTION_IMAGE_BYTES) {
+        throw new HttpException(400, `File must be under ${MAX_QUESTION_IMAGE_BYTES / (1024 * 1024)}MB`);
+      }
+      const safeName = filename.toString().replace(/[^a-zA-Z0-9_.-]/g, '_').slice(-120);
+      const key = `blackbox/questions/${Date.now()}-${safeName}`;
+      const uploadUrl = await s3PublicService.getPresignedUploadUrl(key, contentType);
+      res.status(200).json({ data: { key, uploadUrl }, message: 'upload url generated' });
+    } catch (error) {
+      next(error);
+    }
+  };
   public createQuestion = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const questionData: CreateQuestionDto = req.body;

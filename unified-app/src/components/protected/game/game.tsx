@@ -221,6 +221,7 @@ export default function GamePage() {
         open={isModalOpen === 'challenge'}
         onClose={() => setIsModalOpen('none')}
         question={blackboxProgress?.data.nextQuestion?.question || ''}
+        imageUrl={blackboxProgress?.data.nextQuestion?.imageUrl}
         onSubmitAnswer={handleSubmitAnswer}
       />
 
