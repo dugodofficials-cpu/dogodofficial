@@ -51,14 +51,20 @@ class ProductService {
       includeBundleItems = false,
     } = query;
     const filter: any = {};
+    // search and excludeAlbumTracks each need their own top-level $or —
+    // collect them here and combine with $and instead of the second
+    // assignment silently clobbering the first.
+    const orConditions: any[] = [];
     if (search) {
       const safeSearch = escapeRegex(search);
-      filter.$or = [
-        { name: { $regex: safeSearch, $options: 'i' } },
-        { description: { $regex: safeSearch, $options: 'i' } },
-        { sku: { $regex: safeSearch, $options: 'i' } },
-        { album: { $regex: safeSearch, $options: 'i' } },
-      ];
+      orConditions.push({
+        $or: [
+          { name: { $regex: safeSearch, $options: 'i' } },
+          { description: { $regex: safeSearch, $options: 'i' } },
+          { sku: { $regex: safeSearch, $options: 'i' } },
+          { album: { $regex: safeSearch, $options: 'i' } },
+        ],
+      });
     }
     if (type) filter.type = includeBundleItems ? { $in: [type, ProductType.BUNDLE, ProductType.EBOOK] } : type === ProductType.PHYSICAL ? { $in: [type, ProductType.EBOOK] } : type;
     if (status) filter.status = status;
@@ -75,6 +81,23 @@ class ProductService {
     }
     if (exclude) {
       filter._id = { $ne: exclude };
+    }
+    // This route's query DTO isn't run through validationMiddleware, so a
+    // querystring value arrives as the raw string "true"/"false" — a bare
+    // truthy check would treat "false" as true (any non-empty string is
+    // truthy), same trap the isActive check above avoids.
+    if ((query.excludeAlbumTracks as unknown) === true || (query.excludeAlbumTracks as unknown) === 'true') {
+      orConditions.push({
+        $or: [
+          { type: { $in: [ProductType.PHYSICAL, ProductType.BUNDLE, ProductType.EBOOK] } },
+          { type: ProductType.DIGITAL, albumId: null },
+        ],
+      });
+    }
+    if (orConditions.length === 1) {
+      Object.assign(filter, orConditions[0]);
+    } else if (orConditions.length > 1) {
+      filter.$and = orConditions;
     }
     const sort: any = {
       order: 1,

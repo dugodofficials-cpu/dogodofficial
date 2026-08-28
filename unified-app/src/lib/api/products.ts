@@ -44,6 +44,7 @@ export interface ProductsQueryParams {
   sortBy?: 'name' | 'price' | 'createdAt';
   sortOrder?: 'asc' | 'desc';
   exclude?: string;
+  excludeAlbumTracks?: boolean;
 }
 
 export type ProductSize = 'S' | 'M' | 'L' | 'XL' | 'XXL' | 'XXXL';

@@ -68,14 +68,14 @@ export function InventoryList() {
     status: filterCategory === 'all' ? undefined : filterCategory,
     sortBy: sortField,
     sortOrder: sortOrder,
+    excludeAlbumTracks: true,
   });
 
-  const products = (data?.data ?? []).filter((product) =>
-    product.type === ProductType.PHYSICAL ||
-    product.type === ProductType.BUNDLE ||
-    product.type === ProductType.EBOOK ||
-    (product.type === ProductType.DIGITAL && !product.albumId),
-  );
+  // Filtering to shop-relevant types now happens server-side (via
+  // excludeAlbumTracks) so pagination's total is accurate — album tracks
+  // belong under Music Manager, not here, and used to be fetched into this
+  // list's results just to be discarded, throwing off the page count.
+  const products = data?.data ?? [];
   const total = data?.meta?.total ?? 0;
 
   const handleSort = (field: SortField) => {

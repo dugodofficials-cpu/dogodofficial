@@ -58,6 +58,7 @@ export interface ProductsQueryParams {
   sortOrder?: 'asc' | 'desc';
   exclude?: string;
   includeBundleItems?: boolean;
+  excludeAlbumTracks?: boolean;
 }
 
 export type ProductSize = 'S' | 'M' | 'L' | 'XL' | 'XXL' | 'XXXL';
@@ -377,7 +378,10 @@ export interface AlbumCoverResponse {
 }
 
 export const uploadAlbumCover = (data: FormData | { title: string; description?: string; imageUrl: string }) => {
-  return apiClient<AlbumCover>(`/album-cover`, {
+  // The backend actually responds with { data: AlbumCover, message } — this
+  // was previously (mis)typed as a bare AlbumCover, harmless only because
+  // nothing read the response's fields before now.
+  return apiClient<{ data: AlbumCover; message: string }>(`/album-cover`, {
     headers: data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
     method: 'POST',
     body: data,

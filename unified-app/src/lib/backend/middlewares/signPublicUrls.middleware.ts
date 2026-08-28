@@ -5,7 +5,7 @@ import s3PublicService from '@backend/utils/s3Public';
 // product images, ebook cover art, user profile pictures). The bucket isn't
 // publicly readable, so every response gets these resolved to a fresh
 // presigned URL just before it's sent, instead of persisting a permanent URL.
-const SIGNABLE_FIELDS = new Set(['imageUrl', 'picture', 'images', 'bookCoverArt']);
+const SIGNABLE_FIELDS = new Set(['imageUrl', 'picture', 'images', 'bookCoverArt', 'coverImage']);
 
 function looksLikeUrl(value: string): boolean {
   return /^https?:\/\//i.test(value);

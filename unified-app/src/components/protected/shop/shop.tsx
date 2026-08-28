@@ -1,6 +1,6 @@
 'use client';
 import { usePhysicalProducts } from '@/hooks/products';
-import { ProductStatus, ProductType } from '@/lib/api/products';
+import { ProductStatus } from '@/lib/api/products';
 import {
   Box,
   Grid,
@@ -54,17 +54,14 @@ export default function Shop() {
                 : 'desc',
     limit: 12,
     page,
+    excludeAlbumTracks: true,
   });
 
-  const shopProducts = (physicalProducts?.data || []).filter(
-    (p) =>
-      ((p.type === ProductType.PHYSICAL ||
-        p.type === ProductType.BUNDLE ||
-        p.type === ProductType.EBOOK) ||
-        (p.type === ProductType.DIGITAL && !p.albumId)) &&
-      p.status === ProductStatus.ACTIVE &&
-      p.isActive === true,
-  );
+  // Filtering to shop-relevant types now happens server-side (via
+  // excludeAlbumTracks) so pagination's total/totalPages are accurate —
+  // album tracks belong under Music, not here, and used to be fetched into
+  // this page's results just to be discarded, throwing off the page count.
+  const shopProducts = physicalProducts?.data || [];
 
   const handlePageChange = (_: React.ChangeEvent<unknown>, value: number) => {
     setPage(value);

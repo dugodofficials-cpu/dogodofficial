@@ -1,6 +1,6 @@
 'use client';
 
-import { useGetAlbumCovers } from '@/hooks/admin/products';
+import { useGetAlbumCovers, useUploadAlbumCover } from '@/hooks/admin/products';
 import {
   AlbumCover,
   BulkUploadAlbumTracksResponse,
@@ -23,6 +23,8 @@ import {
   Select,
   Switch,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import Link from 'next/link';
@@ -157,6 +159,10 @@ export default function BulkUploadTracksPage() {
   const [durationsByFile, setDurationsByFile] = useState<Record<string, string>>({});
   const [durationExtractionFailures, setDurationExtractionFailures] = useState<string[]>([]);
   const [isExtractingDurations, setIsExtractingDurations] = useState(false);
+  const [albumMode, setAlbumMode] = useState<'existing' | 'new'>('existing');
+  const [newAlbumTitle, setNewAlbumTitle] = useState('');
+  const [newAlbumCoverFile, setNewAlbumCoverFile] = useState<File | null>(null);
+  const { mutateAsync: uploadAlbumCoverAsync } = useUploadAlbumCover();
 
   const { data: albumCovers, isLoading: isLoadingAlbumCovers } = useGetAlbumCovers();
   const [isPending, setIsPending] = useState(false);
@@ -242,8 +248,12 @@ export default function BulkUploadTracksPage() {
     event.preventDefault();
     setUploadResult(null);
 
-    if (!form.albumId) {
+    if (albumMode === 'existing' && !form.albumId) {
       enqueueSnackbar('Please choose an album.', { variant: 'error' });
+      return;
+    }
+    if (albumMode === 'new' && (!newAlbumTitle.trim() || !newAlbumCoverFile)) {
+      enqueueSnackbar('Please give the new album a title and a cover image.', { variant: 'error' });
       return;
     }
     if (!selectedFiles.length) {
@@ -254,6 +264,15 @@ export default function BulkUploadTracksPage() {
     setIsPending(true);
     setUploadProgress({ done: 0, total: selectedFiles.length });
     try {
+      let albumId = form.albumId;
+      if (albumMode === 'new' && newAlbumCoverFile) {
+        // Creating the album here too — same direct-upload pattern, so the
+        // cover image never routes through this app's own API either.
+        const { key: coverKey } = await uploadProductFileDirect(newAlbumCoverFile);
+        const created = await uploadAlbumCoverAsync({ title: newAlbumTitle.trim(), imageUrl: coverKey });
+        albumId = created.data.id;
+      }
+
       // Every track uploads straight to storage from the browser (limited
       // concurrency, with progress) — this request only carries the
       // resulting keys, so it can't hit Vercel's request-size limit no
@@ -266,7 +285,7 @@ export default function BulkUploadTracksPage() {
       });
 
       const response = await bulkCreateAlbumTracks({
-        albumId: form.albumId,
+        albumId,
         price: form.price,
         albumPrice: form.albumPrice,
         categories: form.categories,
@@ -309,25 +328,67 @@ export default function BulkUploadTracksPage() {
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box component="form" onSubmit={handleUpload} sx={{ display: 'grid', gap: 2 }}>
-          <FormControl fullWidth disabled={isLoadingAlbumCovers}>
-            <InputLabel id="album-select-label">Album</InputLabel>
-            <Select
-              labelId="album-select-label"
-              label="Album"
-              value={form.albumId}
-              onChange={event => handleInputChange('albumId', event.target.value)}
-              required
-            >
-              <MenuItem value="" disabled>
-                {isLoadingAlbumCovers ? 'Loading albums...' : 'Select an album'}
-              </MenuItem>
-              {albumCovers?.data?.map((cover: AlbumCover) => (
-                <MenuItem key={cover.id} value={cover.id}>
-                  {cover.title}
+          <ToggleButtonGroup
+            exclusive
+            value={albumMode}
+            onChange={(_, value) => value && setAlbumMode(value)}
+            size="small"
+            sx={{ justifySelf: 'start' }}
+          >
+            <ToggleButton value="existing">Use existing album</ToggleButton>
+            <ToggleButton value="new">Create new album</ToggleButton>
+          </ToggleButtonGroup>
+
+          {albumMode === 'existing' ? (
+            <FormControl fullWidth disabled={isLoadingAlbumCovers}>
+              <InputLabel id="album-select-label">Album</InputLabel>
+              <Select
+                labelId="album-select-label"
+                label="Album"
+                value={form.albumId}
+                onChange={event => handleInputChange('albumId', event.target.value)}
+                required
+              >
+                <MenuItem value="" disabled>
+                  {isLoadingAlbumCovers ? 'Loading albums...' : 'Select an album'}
                 </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+                {albumCovers?.data?.map((cover: AlbumCover) => (
+                  <MenuItem key={cover.id} value={cover.id}>
+                    {cover.title}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : (
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+              <TextField
+                label="New Album Title"
+                value={newAlbumTitle}
+                onChange={event => setNewAlbumTitle(event.target.value)}
+                required
+              />
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<CloudUploadIcon />}
+              >
+                {newAlbumCoverFile ? newAlbumCoverFile.name : 'Upload album cover'}
+                <input
+                  type="file"
+                  hidden
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={event => {
+                    const file = event.target.files?.[0] ?? null;
+                    if (file && file.size > 10 * 1024 * 1024) {
+                      enqueueSnackbar('Cover image must be under 10MB', { variant: 'error' });
+                      return;
+                    }
+                    setNewAlbumCoverFile(file);
+                  }}
+                />
+              </Button>
+            </Box>
+          )}
 
           <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' } }}>
             <TextField

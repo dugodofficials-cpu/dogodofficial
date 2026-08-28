@@ -292,6 +292,17 @@ export class GetProductsQueryDto {
   @IsBoolean()
   @Type(() => Boolean)
   public includeBundleItems?: boolean = false;
+  // Shop-catalog listings (customer shop page, admin inventory list) only
+  // display physical/bundle/ebook products plus standalone digital tracks —
+  // album tracks are browsed under Music instead. Filtering that server-side
+  // keeps `total`/`totalPages` accurate; the callers used to fetch an
+  // unfiltered page and filter it client-side, which could report several
+  // pages of "results" that were mostly or entirely album tracks filtered
+  // out of view.
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  public excludeAlbumTracks?: boolean = false;
 }
 export class GetDigitalProductsByAlbumsQueryDto {
   @IsOptional()
