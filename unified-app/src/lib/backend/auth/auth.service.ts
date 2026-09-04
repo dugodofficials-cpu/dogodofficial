@@ -1,7 +1,7 @@
 import { DataStoredInToken, TokenData } from '@backend/auth/auth.interface';
 import { User, UserDocument } from '@backend/users/users.interface';
 import userModel from '@backend/users/users.model';
-import { SECRET_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } from '@backend/config';
+import { SECRET_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FRONTEND_URL } from '@backend/config';
 import { HttpException } from '@backend/exceptions/HttpException';
 import { isEmpty } from '@backend/utils/util';
 import { compare, hash } from 'bcrypt';
@@ -13,18 +13,21 @@ import { logger } from '@backend/utils/logger';
 import EmailVerificationService from './emailVerification.service';
 import PasswordResetService from './passwordReset.service';
 import SessionService from './session.service';
+import EmailService from '@backend/email/email.service';
 class AuthService {
   public users = userModel;
   private googleClient: OAuth2Client;
   private emailVerificationService: EmailVerificationService;
   private passwordResetService: PasswordResetService;
   private sessionService: SessionService;
+  private emailService: EmailService;
   constructor() {
     this.users = userModel;
     this.googleClient = new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET);
     this.emailVerificationService = new EmailVerificationService();
     this.passwordResetService = new PasswordResetService();
     this.sessionService = new SessionService();
+    this.emailService = new EmailService();
   }
   public async signup(userData: SignUpDto): Promise<{ message: string }> {
     if (isEmpty(userData)) throw new HttpException(400, 'userData is empty');
@@ -244,11 +247,23 @@ class AuthService {
       } catch (error) {
         logger.error(`Failed to create session for user ${createUserData._id}: ${error.message}`);
       }
+      try {
+        await this.emailService.sendTemplateEmail({
+          to: [createUserData.email],
+          templateName: 'welcome',
+          variables: {
+            firstName: createUserData.firstName || 'there',
+            siteUrl: FRONTEND_URL || 'http://localhost:3000',
+          },
+        });
+      } catch (error) {
+        logger.error(`Failed to send welcome email to ${createUserData.email}: ${error.message}`);
+      }
       return {
         user: createUserData,
         token: tokenData.token,
         cookie,
-        message: 'Account created successfully. Please check your email to verify your account.'
+        message: 'Account created successfully.'
       };
     } catch (error) {
       logger.error(error);

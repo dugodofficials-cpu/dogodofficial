@@ -154,6 +154,29 @@ export default function OrderConfirmation() {
         >
           Track your order
         </Button>
+        {!hasPhysicalProducts && (
+          <Button
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.localStorage.removeItem('postPurchaseRedirect');
+              }
+              router.push(ROUTES.GAME.CLUES);
+            }}
+            sx={{
+              backgroundColor: '#2AC318',
+              color: '#000',
+              padding: '0.75rem 2rem',
+              borderRadius: '0.5rem',
+              fontFamily: 'ClashDisplay-Medium',
+              textTransform: 'none',
+              '&:hover': {
+                backgroundColor: '#25a815',
+              },
+            }}
+          >
+            🔍 View Your Clues
+          </Button>
+        )}
         <Button
           onClick={handleContinue}
           sx={{
@@ -171,23 +194,25 @@ export default function OrderConfirmation() {
           Continue Shopping
         </Button>
       </Box>
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 2,
-          marginTop: 2,
-        }}
-      >
-        <Typography
+      {hasPhysicalProducts && (
+        <Box
           sx={{
-            color: '#7B7B7B',
-            fontFamily: 'Satoshi',
-            fontSize: '1rem',
+            display: 'flex',
+            gap: 2,
+            marginTop: 2,
           }}
         >
-          Delivery takes 1 business day within Lagos and 3–5 business days outside Lagos.
-        </Typography>
-      </Box>
+          <Typography
+            sx={{
+              color: '#7B7B7B',
+              fontFamily: 'Satoshi',
+              fontSize: '1rem',
+            }}
+          >
+            Delivery takes 1 business day within Lagos and 3–5 business days outside Lagos.
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 }

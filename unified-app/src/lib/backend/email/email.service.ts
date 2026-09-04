@@ -52,10 +52,25 @@ class EmailService {
     try {
       await this.createDefaultVerificationTemplate();
       await this.createDefaultPasswordResetTemplate();
+      await this.createDefaultWelcomeTemplate();
       logger.info('Default email templates initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize default email templates:', error.message);
     }
+  }
+  private getReadableErrorMessage(error: any): string {
+    // ZeptoMail's SDK rejects with the raw parsed API error body on a
+    // real API-level failure (e.g. { error: { message, details } }), not
+    // a JS Error — `error.message` is undefined for that shape, which
+    // previously logged every failure as the unhelpful "Unknown error
+    // occurred" no matter what actually went wrong (invalid token, domain
+    // not verified, credits exhausted, etc.).
+    return (
+      error?.message ||
+      error?.error?.details?.[0]?.message ||
+      error?.error?.message ||
+      'Unknown error occurred'
+    );
   }
   private determineEmailProvider(): 'zepto' | 'resend' {
     const zeptoConfigured = appConfig?.zepto?.apiToken && appConfig?.zepto?.domain;
@@ -95,16 +110,17 @@ class EmailService {
         throw new Error(`Unsupported email provider: ${provider}`);
       }
     } catch (error) {
-      logger.error(`Failed to send email via ${provider}: ${error.message}`);
+      const readableMessage = this.getReadableErrorMessage(error);
+      logger.error(`Failed to send email via ${provider}: ${readableMessage}`);
       const updatedLog = await emailModel.EmailLog.findByIdAndUpdate(
         emailLog._id,
         {
           status: 'failed',
-          errorMessage: error.message || 'Unknown error occurred',
+          errorMessage: readableMessage,
         },
         { new: true }
       );
-      throw new HttpException(500, `Failed to send email via ${provider}: ${error.message || 'Unknown error occurred'}`);
+      throw new HttpException(500, `Failed to send email via ${provider}: ${readableMessage}`);
     }
   }
   public async sendEmailWithProvider(emailData: SendEmailRequest, provider: 'zepto' | 'resend'): Promise<EmailLog> {
@@ -136,17 +152,7 @@ class EmailService {
         throw new Error(`Unsupported email provider: ${provider}`);
       }
     } catch (error) {
-      // ZeptoMail's SDK rejects with the raw parsed API error body on a
-      // real API-level failure (e.g. { error: { message, details } }), not
-      // a JS Error — `error.message` is undefined for that shape, which
-      // previously logged every failure as the unhelpful "Unknown error
-      // occurred" no matter what actually went wrong (invalid token, domain
-      // not verified, credits exhausted, etc.).
-      const readableMessage =
-        error?.message ||
-        error?.error?.details?.[0]?.message ||
-        error?.error?.message ||
-        'Unknown error occurred';
+      const readableMessage = this.getReadableErrorMessage(error);
       logger.error(`Failed to send email via ${provider}: ${readableMessage}`);
       await emailModel.EmailLog.findByIdAndUpdate(
         emailLog._id,
@@ -396,6 +402,62 @@ The Dugod Team
 This is an automated message, please do not reply to this email.
       `,
       variables: ['firstName', 'resetUrl', 'expiryHours'],
+    };
+    return this.createTemplate(templateData);
+  }
+  public async createDefaultWelcomeTemplate(): Promise<EmailTemplate> {
+    const templateName = 'welcome';
+    const existingTemplate = await emailModel.EmailTemplate.findOne({ name: templateName });
+    if (existingTemplate) {
+      return existingTemplate;
+    }
+    const templateData: CreateTemplateRequest = {
+      name: templateName,
+      subject: 'Welcome to Dugod!',
+      htmlContent: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Welcome to Dugod</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #0B6201; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+            .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 5px 5px; }
+            .button { display: inline-block; background: #0B6201; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Welcome to Dugod, {{firstName}}!</h1>
+            </div>
+            <div class="content">
+              <p>Your account is ready to go — thanks for signing up.</p>
+              <div style="text-align: center;">
+                <a href="{{siteUrl}}" class="button">Start Exploring</a>
+              </div>
+              <p>If you have any questions or concerns, please contact our support team.</p>
+            </div>
+            <div class="footer">
+              <p>&copy; 2024 Dugod. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      textContent: `
+Welcome to Dugod, {{firstName}}!
+Your account is ready to go — thanks for signing up.
+Visit {{siteUrl}} to start exploring.
+If you have any questions or concerns, please contact our support team.
+Best regards,
+The Dugod Team
+      `,
+      variables: ['firstName', 'siteUrl'],
     };
     return this.createTemplate(templateData);
   }
