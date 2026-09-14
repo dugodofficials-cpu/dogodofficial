@@ -235,6 +235,16 @@ class ProductsController {
       next(error);
     }
   };
+  public updateEbookMedia = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const productId: string = req.params.id;
+      const { coverKey, ebookKey } = req.body || {};
+      const updated = await this.productService.updateEbookMedia(productId, { coverKey, ebookKey });
+      res.status(200).json({ data: updated, message: 'updated' });
+    } catch (error) {
+      next(error);
+    }
+  };
   public deleteProduct = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const productId: string = req.params.id;

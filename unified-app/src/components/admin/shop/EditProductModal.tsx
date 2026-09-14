@@ -35,10 +35,15 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import Image from 'next/image';
 import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { productCategories } from '@/lib/admin/utils/categories';
+import { uploadProductFileDirect } from '@/lib/admin/api/products';
+import { enqueueSnackbar } from 'notistack';
+
+const MAX_PRODUCT_IMAGE_BYTES = 10 * 1024 * 1024;
 
 interface EditProductModalProps {
   open: boolean;
@@ -61,6 +66,8 @@ export function EditProductModal({
   const [bundleItems, setBundleItems] = React.useState<BundleItem[]>(
     product?.bundleItems || [],
   );
+  const [imageFile, setImageFile] = React.useState<File | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = React.useState(false);
 
   const {
     control,
@@ -104,6 +111,7 @@ export function EditProductModal({
         order: product.order,
       });
       setBundleItems(product.bundleItems || []);
+      setImageFile(null);
     }
   }, [product, reset]);
 
@@ -132,9 +140,9 @@ export function EditProductModal({
     setBundleItems(updatedItems);
   };
 
-  const onSubmit = (data: EditProductFormData) => {
+  const onSubmit = async (data: EditProductFormData) => {
     if (product) {
-      const updatedProduct = {
+      const updatedProduct: Record<string, unknown> = {
         ...product,
         ...data,
         sizes: data.sizes as ProductSize[],
@@ -144,6 +152,28 @@ export function EditProductModal({
           ? Number(data.stockQuantity)
           : undefined,
       };
+      // Only touch images when a new file was actually picked. product.images
+      // here is always the signed URL from the last GET response, never the
+      // stored key — resubmitting it unchanged would persist that temporary
+      // signed URL as the permanent value, breaking the image once its
+      // 7-day signature expires. Omitting the field entirely leaves the
+      // existing stored key untouched server-side.
+      delete updatedProduct.images;
+      if (imageFile) {
+        setIsUploadingImage(true);
+        try {
+          // Uploads straight to storage from the browser — this request
+          // never carries the file bytes, so it can't hit Vercel's
+          // request-size limit.
+          const { key } = await uploadProductFileDirect(imageFile);
+          updatedProduct.images = [key];
+        } catch (error) {
+          enqueueSnackbar(error instanceof Error ? error.message : 'Failed to upload image', { variant: 'error' });
+          setIsUploadingImage(false);
+          return;
+        }
+        setIsUploadingImage(false);
+      }
 
       if (product.type === ProductType.BUNDLE) {
         updatedProduct.bundleItems = bundleItems;
@@ -153,7 +183,7 @@ export function EditProductModal({
         updatedProduct.bundlePrice = undefined;
       }
 
-      onSave(updatedProduct as Product);
+      onSave(updatedProduct as unknown as Product);
     }
     onClose();
   };
@@ -169,7 +199,7 @@ export function EditProductModal({
         <DialogContent>
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-              <Box sx={{ width: 100, height: 100, position: 'relative' }}>
+              <Box sx={{ width: 100, height: 100, position: 'relative', flexShrink: 0 }}>
                 <Image
                   src={product.images[0] || '/assets/product-placeholder.svg'}
                   alt={product.name}
@@ -177,10 +207,26 @@ export function EditProductModal({
                   style={{ objectFit: 'cover' }}
                 />
               </Box>
-              <Typography variant="body2" color="text.secondary">
-                To update the {isBundle ? 'bundle' : 'product'} image, please
-                use the Add Inventory form.
-              </Typography>
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<CloudUploadIcon />}
+              >
+                {imageFile ? imageFile.name : `Replace ${isBundle ? 'bundle' : 'product'} image`}
+                <input
+                  type="file"
+                  hidden
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    if (file && file.size > MAX_PRODUCT_IMAGE_BYTES) {
+                      enqueueSnackbar(`Image must be under ${MAX_PRODUCT_IMAGE_BYTES / (1024 * 1024)}MB`, { variant: 'error' });
+                      return;
+                    }
+                    setImageFile(file);
+                  }}
+                />
+              </Button>
             </Box>
 
             <Controller
@@ -245,21 +291,6 @@ export function EditProductModal({
                   error={!!errors.sku}
                   helperText={errors.sku?.message}
                   required
-                />
-              )}
-            />
-
-            <Controller
-              name="images"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  fullWidth
-                  label="Images"
-                  error={!!errors.images}
-                  onChange={(e) => field.onChange(e.target.value.split(', '))}
-                  helperText={errors.images?.message}
                 />
               )}
             />
@@ -517,9 +548,9 @@ export function EditProductModal({
             type="submit"
             variant="contained"
             sx={{ bgcolor: '#2FD65D' }}
-            disabled={isLoading}
+            disabled={isLoading || isUploadingImage}
           >
-            {isLoading ? 'Saving...' : 'Save Changes'}
+            {isUploadingImage ? 'Uploading image...' : isLoading ? 'Saving...' : 'Save Changes'}
           </Button>
         </DialogActions>
       </form>

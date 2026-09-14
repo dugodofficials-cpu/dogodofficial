@@ -1,6 +1,6 @@
 'use client';
 
-import { Product, ProductStatus, uploadProductFileDirect, updateProduct } from '@/lib/admin/api/products';
+import { Product, ProductStatus, uploadProductFileDirect, updateEbookMedia } from '@/lib/admin/api/products';
 import { productCategories } from '@/lib/admin/utils/categories';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -121,9 +121,6 @@ export function EditEbookModal({
             .filter(Boolean)
         : [];
 
-      let images = product.images;
-      let ebookDeliveryInfo = product.ebookDeliveryInfo;
-
       if (newCoverImage || newEbookFile) {
         setIsUploadingMedia(true);
         try {
@@ -135,11 +132,18 @@ export function EditEbookModal({
             newCoverImage ? uploadProductFileDirect(newCoverImage) : Promise.resolve(null),
             newEbookFile ? uploadProductFileDirect(newEbookFile, resolveEbookContentType(newEbookFile)) : Promise.resolve(null),
           ]);
-          const coverKey = coverUpload?.key ?? product.images?.[0];
-          const ebookKey = ebookUpload?.key ?? product.ebookDeliveryInfo?.downloadUrl;
-          images = coverKey ? [coverKey] : product.images;
-          ebookDeliveryInfo = { ...product.ebookDeliveryInfo, downloadUrl: ebookKey, bookCoverArt: coverKey };
-          await updateProduct(product._id, { images, ebookDeliveryInfo });
+          // Only the key(s) that actually changed are sent — updateEbookMedia
+          // leaves whatever isn't passed completely untouched at the database
+          // level. We deliberately do NOT fall back to product.images[0] /
+          // product.ebookDeliveryInfo?.downloadUrl for the other field: those
+          // are always an already-signed URL (this component only ever sees
+          // data from a GET response), and persisting that as the stored
+          // value would corrupt it once the signature expires in 7 days —
+          // exactly the bug this replaces.
+          await updateEbookMedia(product._id, {
+            coverKey: coverUpload?.key,
+            ebookKey: ebookUpload?.key,
+          });
         } catch (error) {
           enqueueSnackbar(error instanceof Error ? error.message : 'Failed to upload ebook files', { variant: 'error' });
           setIsUploadingMedia(false);
@@ -148,13 +152,15 @@ export function EditEbookModal({
         setIsUploadingMedia(false);
       }
 
+      // images/ebookDeliveryInfo are intentionally left as the existing
+      // (possibly signed-URL) values here purely for optimistic UI display —
+      // handleSaveEdit never forwards these fields for EBOOK-type products,
+      // so this object is not what actually gets persisted for them.
       const updatedProduct = {
         ...product,
         ...data,
         price: Number(data.price),
         tags: tagsArray,
-        images,
-        ebookDeliveryInfo,
         bundleItems: undefined,
         bundlePrice: undefined,
         bundleTier: undefined,

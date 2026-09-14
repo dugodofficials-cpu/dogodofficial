@@ -471,6 +471,39 @@ class ProductService {
     if (!updateProductById) throw new HttpException(409, "Product doesn't exist");
     return updateProductById;
   }
+  // Replaces just the cover image and/or ebook file on an existing ebook
+  // product, after both have already been uploaded directly to storage.
+  // Deliberately does NOT accept the caller's idea of the "unchanged" field
+  // (e.g. re-sending product.images[0] from a GET response) — that value is
+  // always a signed URL, not the stored key, and persisting it would corrupt
+  // the field once the signature expires. Using $set with dot-notation on
+  // only the field(s) actually being replaced means whichever key was NOT
+  // passed here is left completely untouched at the database level, sourced
+  // fresh from this document rather than from anything the client supplied.
+  public async updateEbookMedia(productId: string, data: { coverKey?: string; ebookKey?: string }): Promise<Product> {
+    const product = await this.findProductById(productId);
+    if (product.type !== ProductType.EBOOK) {
+      throw new HttpException(400, 'This endpoint is for ebook products only');
+    }
+    const setFields: Record<string, unknown> = {};
+    if (data.coverKey) {
+      setFields.images = [data.coverKey];
+      setFields['ebookDeliveryInfo.bookCoverArt'] = data.coverKey;
+    }
+    if (data.ebookKey) {
+      setFields['ebookDeliveryInfo.downloadUrl'] = data.ebookKey;
+    }
+    if (Object.keys(setFields).length === 0) {
+      throw new HttpException(400, 'Provide at least one of coverKey or ebookKey');
+    }
+    const updateProductById = await this.products.findByIdAndUpdate(
+      productId,
+      { $set: setFields },
+      { new: true }
+    ).populate('albumId');
+    if (!updateProductById) throw new HttpException(409, "Product doesn't exist");
+    return updateProductById;
+  }
   public async getBundleProducts(): Promise<Product[]> {
     return this.products.find({
       type: ProductType.BUNDLE,

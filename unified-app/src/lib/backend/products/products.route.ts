@@ -62,6 +62,7 @@ class ProductsRoute implements Routes {
       this.productsController.previewMedia
     );
     this.router.put(`${this.path}/:id`, [authMiddleware, hasPermission(Permission.UPDATE_PRODUCT)], validationMiddleware(UpdateProductDto, 'body', true), this.productsController.updateProduct);
+    this.router.patch(`${this.path}/:id/ebook-media`, [authMiddleware, hasPermission(Permission.UPDATE_PRODUCT)], this.productsController.updateEbookMedia);
     this.router.delete(`${this.path}/:id`, [authMiddleware, hasPermission(Permission.DELETE_PRODUCT)], this.productsController.deleteProduct);
     this.router.patch(`${this.path}/:id/stock`, [authMiddleware, hasPermission(Permission.UPDATE_PRODUCT)], validationMiddleware({ quantity: 'number' }, 'body'), this.productsController.updateStock);
   }

@@ -356,6 +356,17 @@ export const updateProduct = (id: string, data: Partial<CreateProductDto>) => {
   });
 };
 
+// Replaces just the cover image and/or ebook file on an existing ebook
+// product. Only pass the key(s) that actually changed — this never touches
+// the field you don't pass, unlike the generic updateProduct, which is why
+// EditEbookModal uses this instead when swapping only one of the two files.
+export const updateEbookMedia = (id: string, data: { coverKey?: string; ebookKey?: string }) => {
+  return apiClient<ProductById>(`/products/${id}/ebook-media`, {
+    method: 'PATCH',
+    body: data,
+  });
+};
+
 export const deleteProduct = (id: string) => {
   return apiClient<ProductById>(`/products/${id}`, {
     method: 'DELETE'
