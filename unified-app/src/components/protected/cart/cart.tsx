@@ -8,12 +8,17 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import { Product, ProductType } from '@/lib/api/products';
+import { CartItem } from '@/lib/api/cart';
+import ImageHoverPreview from '@/components/ui/image-hover-preview';
 import { ROUTES } from '@/util/paths';
 
 interface CartDrawerProps {
   open: boolean;
   onClose: () => void;
 }
+
+const cartItemImage = (item: CartItem) =>
+  item.product?.albumId?.imageUrl || item.product?.images[0] || '/assets/product-placeholder.svg';
 
 export default function CartDrawer({ open, onClose }: CartDrawerProps) {
   const { data: cartItems, isLoading } = useCart();
@@ -184,26 +189,24 @@ export default function CartDrawer({ open, onClose }: CartDrawerProps) {
                     border: '1px solid rgba(103, 97, 97, 0.30)',
                   }}
                 >
-                  <Box
-                    sx={{
-                      position: 'relative',
-                      width: '6rem',
-                      height: '6rem',
-                      borderRadius: '0.5rem',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <Image
-                      src={
-                        item.product?.albumId?.imageUrl ||
-                        item.product?.images[0] ||
-                        '/assets/product-placeholder.svg'
-                      }
-                      alt={item.product.name}
-                      fill
-                      style={{ objectFit: 'cover' }}
-                    />
-                  </Box>
+                  <ImageHoverPreview src={cartItemImage(item)} alt={item.product.name}>
+                    <Box
+                      sx={{
+                        position: 'relative',
+                        width: '6rem',
+                        height: '6rem',
+                        borderRadius: '0.5rem',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <Image
+                        src={cartItemImage(item)}
+                        alt={item.product.name}
+                        fill
+                        style={{ objectFit: 'cover' }}
+                      />
+                    </Box>
+                  </ImageHoverPreview>
                   <Box
                     sx={{
                       flex: 1,

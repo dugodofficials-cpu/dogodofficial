@@ -29,6 +29,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
 import Image from 'next/image';
+import ImageHoverPreview from '@/components/ui/image-hover-preview';
 import { useCallback, useState } from 'react';
 import { EditProductModal } from './EditProductModal';
 import { EditEbookModal } from './EditEbookModal';
@@ -44,6 +45,11 @@ import { ROUTES } from '@/utils/paths';
 type OrderStatus = ProductStatus | 'all';
 type SortField = 'name' | 'price' | 'createdAt';
 type SortOrder = 'asc' | 'desc';
+
+const productImage = (product: Product) =>
+  (product.type === ProductType.EBOOK
+    ? product.ebookDeliveryInfo?.bookCoverArt
+    : product.images[0]) || '/assets/product-placeholder.svg';
 
 export function InventoryList() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -390,20 +396,16 @@ export function InventoryList() {
                 <TableCell>{product._id}</TableCell>
                 <TableCell>{product.order}</TableCell>
                 <TableCell>
-                  <Box sx={{ width: 60, height: 60, position: 'relative' }}>
-                    <Image
-                      src={
-                        product.type === ProductType.EBOOK
-                          ? product.ebookDeliveryInfo?.bookCoverArt ||
-                            '/assets/product-placeholder.svg'
-                          : product.images[0] ||
-                            '/assets/product-placeholder.svg'
-                      }
-                      alt={product.name}
-                      fill
-                      style={{ objectFit: 'cover' }}
-                    />
-                  </Box>
+                  <ImageHoverPreview src={productImage(product)} alt={product.name}>
+                    <Box sx={{ width: 60, height: 60, position: 'relative' }}>
+                      <Image
+                        src={productImage(product)}
+                        alt={product.name}
+                        fill
+                        style={{ objectFit: 'cover' }}
+                      />
+                    </Box>
+                  </ImageHoverPreview>
                 </TableCell>
                 <TableCell>{product.name}</TableCell>
                 <TableCell>₦{product.price.toLocaleString()}</TableCell>

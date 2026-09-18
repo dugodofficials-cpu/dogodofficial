@@ -3,6 +3,7 @@
 import { useApplyCouponCode, useCart } from '@/hooks/cart';
 import { useCreateOrder } from '@/hooks/order';
 import { useUser } from '@/hooks/user';
+import ImageHoverPreview from '@/components/ui/image-hover-preview';
 import { AppliedDiscount, CartItem, CartItemResponse } from '@/lib/api/cart';
 import { DeliveryStatus, OrderStatus } from '@/lib/api/order';
 import { ROUTES } from '@/util/paths';
@@ -17,6 +18,9 @@ interface CartReviewProps {
   onNext: (step?: number) => void;
   hasPhysicalItems: boolean;
 }
+
+const cartItemImage = (item: CartItem) =>
+  item.product?.albumId?.imageUrl || item.product?.images[0] || '/assets/product-placeholder.svg';
 
 export default function CartReview({ onNext, hasPhysicalItems }: CartReviewProps) {
   const { data: cartItems, isLoading } = useCart() as UseQueryResult<CartItemResponse> & {
@@ -270,26 +274,24 @@ export default function CartReview({ onNext, hasPhysicalItems }: CartReviewProps
                   border: '1px solid rgba(103, 97, 97, 0.30)',
                 }}
               >
-                <Box
-                  sx={{
-                    position: 'relative',
-                    width: { xs: '6rem', md: '8rem' },
-                    height: { xs: '6rem', md: '8rem' },
-                    borderRadius: '0.5rem',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <Image
-                    src={
-                      item.product?.albumId?.imageUrl ||
-                      item.product?.images[0] ||
-                      '/assets/product-placeholder.svg'
-                    }
-                    alt={item.product.name || 'Product'}
-                    fill
-                    style={{ objectFit: 'cover' }}
-                  />
-                </Box>
+                <ImageHoverPreview src={cartItemImage(item)} alt={item.product.name || 'Product'}>
+                  <Box
+                    sx={{
+                      position: 'relative',
+                      width: { xs: '6rem', md: '8rem' },
+                      height: { xs: '6rem', md: '8rem' },
+                      borderRadius: '0.5rem',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <Image
+                      src={cartItemImage(item)}
+                      alt={item.product.name || 'Product'}
+                      fill
+                      style={{ objectFit: 'cover' }}
+                    />
+                  </Box>
+                </ImageHoverPreview>
                 <Box
                   sx={{
                     flex: 1,

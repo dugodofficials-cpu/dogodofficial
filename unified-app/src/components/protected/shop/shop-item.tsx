@@ -11,6 +11,7 @@ import { useSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import SectionBg from '../../../../public/assets/section-bg.png';
 import Footer from '../../layout/footer';
+import ImageHoverPreview from '../../ui/image-hover-preview';
 import ProductOptions from '../../ui/product-options';
 import RelatedItems from './relatedItems';
 import { ROUTES } from '@/util/paths';
@@ -159,28 +160,30 @@ export default function ShopItem() {
             }}
           >
             <Grid size={{ xs: 12, sm: 6 }}>
-              <Box
-                sx={{
-                  position: 'relative',
-                  width: '100%',
-                  height: { xs: '20rem', sm: '30rem' },
-                  borderRadius: '0.75rem',
-                  overflow: 'hidden',
-                  boxShadow: '0px 19px 46.3px 0px rgba(53, 53, 53, 0.25)',
-                  cursor: 'pointer',
-                }}
-                onClick={() => setIsImageOpen(true)}
-                role="button"
-                aria-label="Open product image"
-              >
-                <Image
-                  src={mainImageSrc}
-                  alt="product"
-                  fill
-                  objectFit="cover"
-                  onError={() => setMainImageSrc(fallbackImage)}
-                />
-              </Box>
+              <ImageHoverPreview src={mainImageSrc} alt={product?.data.name || 'product'}>
+                <Box
+                  sx={{
+                    position: 'relative',
+                    width: '100%',
+                    height: { xs: '20rem', sm: '30rem' },
+                    borderRadius: '0.75rem',
+                    overflow: 'hidden',
+                    boxShadow: '0px 19px 46.3px 0px rgba(53, 53, 53, 0.25)',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setIsImageOpen(true)}
+                  role="button"
+                  aria-label="Open product image"
+                >
+                  <Image
+                    src={mainImageSrc}
+                    alt="product"
+                    fill
+                    objectFit="cover"
+                    onError={() => setMainImageSrc(fallbackImage)}
+                  />
+                </Box>
+              </ImageHoverPreview>
               <Dialog
                 open={isImageOpen}
                 onClose={() => setIsImageOpen(false)}

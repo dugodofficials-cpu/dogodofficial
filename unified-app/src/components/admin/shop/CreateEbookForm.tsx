@@ -17,6 +17,7 @@ import {
   Grid,
 } from '@mui/material';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
+import ImageHoverPreview from '@/components/ui/image-hover-preview';
 import SaveIcon from '@mui/icons-material/Save';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -385,15 +386,17 @@ export function CreateEbookForm() {
                 />
                 {coverImagePreview ? (
                   <Box sx={{ width: '100%', mb: 2 }}>
-                    <img
-                      src={coverImagePreview}
-                      alt="Cover preview"
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: 300,
-                        objectFit: 'contain',
-                      }}
-                    />
+                    <ImageHoverPreview src={coverImagePreview} alt="Cover preview">
+                      <img
+                        src={coverImagePreview}
+                        alt="Cover preview"
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: 300,
+                          objectFit: 'contain',
+                        }}
+                      />
+                    </ImageHoverPreview>
                   </Box>
                 ) : (
                   <>

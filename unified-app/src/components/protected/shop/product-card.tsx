@@ -1,3 +1,4 @@
+import ImageHoverPreview from '@/components/ui/image-hover-preview';
 import RoundedButton from '@/components/ui/rounded-button';
 import { ProductType } from '@/lib/api/products';
 import { ROUTES } from '@/util/paths';
@@ -50,25 +51,27 @@ export default function ProductCard({
         width: '100%',
       }}
     >
-      <Box
-        onClick={handleClick}
-        sx={{
-          width: '100%',
-          height: { xs: '20rem', sm: '22rem', xl: '30rem' },
-          backgroundColor: '#000',
-          position: 'relative',
-          overflow: 'hidden',
-          borderRadius: '0.75rem',
-        }}
-      >
-        <Image
-          src={imageSrc}
-          alt={productName}
-          fill
-          objectFit={isMobile ? 'cover' : 'contain'}
-          onError={() => setImageSrc(fallbackImage)}
-        />
-      </Box>
+      <ImageHoverPreview src={imageSrc} alt={productName}>
+        <Box
+          onClick={handleClick}
+          sx={{
+            width: '100%',
+            height: { xs: '20rem', sm: '22rem', xl: '30rem' },
+            backgroundColor: '#000',
+            position: 'relative',
+            overflow: 'hidden',
+            borderRadius: '0.75rem',
+          }}
+        >
+          <Image
+            src={imageSrc}
+            alt={productName}
+            fill
+            objectFit={isMobile ? 'cover' : 'contain'}
+            onError={() => setImageSrc(fallbackImage)}
+          />
+        </Box>
+      </ImageHoverPreview>
       <Typography
         sx={{
           color: '#FFF',

@@ -16,6 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import ImageHoverPreview from '@/components/ui/image-hover-preview';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState, useCallback, useEffect } from 'react';
 
@@ -189,7 +190,9 @@ export function EditQuestionModal({
                 Current clue image
               </Typography>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={question.imageUrl} alt="Question clue" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 4 }} />
+              <ImageHoverPreview src={question.imageUrl} alt="Question clue">
+                <img src={question.imageUrl} alt="Question clue" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 4 }} />
+              </ImageHoverPreview>
             </Box>
           )}
 

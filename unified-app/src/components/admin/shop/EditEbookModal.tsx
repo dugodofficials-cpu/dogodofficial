@@ -21,6 +21,7 @@ import {
   Typography,
 } from '@mui/material';
 import Image from 'next/image';
+import ImageHoverPreview from '@/components/ui/image-hover-preview';
 import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -181,14 +182,19 @@ export function EditEbookModal({
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
             {product.images && product.images.length > 0 && (
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                <Box sx={{ width: 100, height: 100, position: 'relative' }}>
-                  <Image
-                    src={product.images[0] || '/assets/product-placeholder.svg'}
-                    alt={product.name}
-                    fill
-                    style={{ objectFit: 'cover' }}
-                  />
-                </Box>
+                <ImageHoverPreview
+                  src={product.images[0] || '/assets/product-placeholder.svg'}
+                  alt={product.name}
+                >
+                  <Box sx={{ width: 100, height: 100, position: 'relative' }}>
+                    <Image
+                      src={product.images[0] || '/assets/product-placeholder.svg'}
+                      alt={product.name}
+                      fill
+                      style={{ objectFit: 'cover' }}
+                    />
+                  </Box>
+                </ImageHoverPreview>
               </Box>
             )}
 

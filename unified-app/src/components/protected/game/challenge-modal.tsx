@@ -6,6 +6,7 @@ import { AnswerQuestionResponse } from '@/lib/api/blackbox';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '@/util/paths';
 import Image from 'next/image';
+import ImageHoverPreview from '@/components/ui/image-hover-preview';
 
 interface ChallengeModalProps {
   open: boolean;
@@ -105,18 +106,20 @@ export default function ChallengeModal({
         )}
 
         {!!question && imageUrl && (
-          <Box
-            sx={{
-              position: 'relative',
-              width: '100%',
-              maxWidth: '20rem',
-              height: { xs: '12rem', sm: '16rem' },
-              borderRadius: '0.75rem',
-              overflow: 'hidden',
-            }}
-          >
-            <Image src={imageUrl} alt="Clue" fill style={{ objectFit: 'cover' }} />
-          </Box>
+          <ImageHoverPreview src={imageUrl} alt="Clue">
+            <Box
+              sx={{
+                position: 'relative',
+                width: '100%',
+                maxWidth: '20rem',
+                height: { xs: '12rem', sm: '16rem' },
+                borderRadius: '0.75rem',
+                overflow: 'hidden',
+              }}
+            >
+              <Image src={imageUrl} alt="Clue" fill style={{ objectFit: 'cover' }} />
+            </Box>
+          </ImageHoverPreview>
         )}
 
         <TextField
