@@ -82,7 +82,7 @@ const emailLogSchema = new Schema<EmailLog>(
       type: String,
       enum: ['zepto', 'resend'],
       required: true,
-      default: 'zepto',
+      default: 'resend',
     },
     errorMessage: {
       type: String,

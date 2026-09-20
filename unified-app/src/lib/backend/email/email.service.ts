@@ -12,7 +12,7 @@ const appConfig = {
   },
   resend: {
     apiKey: process.env.RESEND_API_KEY,
-    domain: process.env.RESEND_DOMAIN || process.env.ZEPTO_DOMAIN || 'dugod.com'
+    domain: process.env.RESEND_DOMAIN
   }
 };
 import {
@@ -75,8 +75,12 @@ class EmailService {
   private determineEmailProvider(): 'zepto' | 'resend' {
     const zeptoConfigured = appConfig?.zepto?.apiToken && appConfig?.zepto?.domain;
     const resendConfigured = appConfig?.resend?.apiKey && appConfig?.resend?.domain;
+    // Resend is the primary provider. ZeptoMail is only used if someone opts
+    // into it explicitly — it must never become the default again by accident,
+    // which is what happened when prod was missing RESEND_API_KEY and silently
+    // fell back to a dead ZeptoMail token for weeks.
     if (zeptoConfigured && resendConfigured) {
-      return process.env.PREFERRED_EMAIL_PROVIDER === 'resend' ? 'resend' : 'zepto';
+      return process.env.PREFERRED_EMAIL_PROVIDER === 'zepto' ? 'zepto' : 'resend';
     }
     if (resendConfigured) {
       return 'resend';
@@ -604,7 +608,7 @@ The Dugod Team
       textContent: emailLog.textContent,
       templateName: emailLog.templateName,
       variables: emailLog.variables,
-    }, emailLog.provider);
+    }, this.determineEmailProvider());
   }
   public async getEmailLogsByProvider(provider: 'zepto' | 'resend', queryParams: EmailQueryParams): Promise<PaginatedEmailLogsResponse> {
     const filters = { ...queryParams.filters, provider };
