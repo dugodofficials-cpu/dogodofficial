@@ -10,9 +10,6 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'DuGod Official',
   description: 'DuGod Entertainment Platform',
-  icons: {
-    icon: '/favicon.ico',
-  },
 };
 
 export default function RootLayout({
