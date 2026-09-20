@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { TabPanel } from '@/components/admin/settings/TabPanel';
+import { NotBuiltYet } from '@/components/admin/NotBuiltYet';
 import { AdminProfileForm } from '@/components/admin/settings/AdminProfileForm';
 
 function a11yProps(index: number) {
@@ -88,19 +89,22 @@ export default function AdminSettingsPage() {
       </TabPanel>
 
       <TabPanel value={value} index={1}>
-        <Typography>Platform Configurations content</Typography>
+        <NotBuiltYet title="Platform Configurations" />
       </TabPanel>
 
       <TabPanel value={value} index={2}>
-        <Typography>Email & Notification Settings content</Typography>
+        <NotBuiltYet
+          title="Email & Notification Settings"
+          detail="Transactional email is configured through the RESEND_* environment variables, not from this screen."
+        />
       </TabPanel>
 
       <TabPanel value={value} index={3}>
-        <Typography>System Metadata content</Typography>
+        <NotBuiltYet title="System Metadata" />
       </TabPanel>
 
       <TabPanel value={value} index={4}>
-        <Typography>Security Controls content</Typography>
+        <NotBuiltYet title="Security Controls" />
       </TabPanel>
     </Container>
   );

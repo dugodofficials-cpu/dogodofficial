@@ -191,10 +191,6 @@ export function UserList() {
           setDeleteDialogOpen(true);
         }
         break;
-      case 'suspend':
-      case 'reactivate':
-        console.log(`${action} user:`, userId);
-        break;
       default:
         break;
     }

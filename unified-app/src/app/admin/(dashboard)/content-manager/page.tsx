@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Box, Typography, Tabs, Tab } from '@mui/material';
 import { TabPanel } from '@/components/admin/content/TabPanel';
+import { NotBuiltYet } from '@/components/admin/NotBuiltYet';
 import { HeroBannerForm } from '@/components/admin/content/HeroBannerForm';
 import WebIcon from '@mui/icons-material/Web';
 
@@ -86,15 +87,18 @@ export default function ContentManagerPage() {
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
-        <Typography variant="h6">BlackBox Game</Typography>
+        <NotBuiltYet
+          title="BlackBox Game content"
+          detail="Questions and clues are managed from the BlackBox section, not from here."
+        />
       </TabPanel>
 
       <TabPanel value={tabValue} index={2}>
-        <Typography variant="h6">Event Highlights</Typography>
+        <NotBuiltYet title="Event Highlights" />
       </TabPanel>
 
       <TabPanel value={tabValue} index={3}>
-        <Typography variant="h6">Footer & Legal</Typography>
+        <NotBuiltYet title="Footer & Legal" />
       </TabPanel>
     </Box>
   );

@@ -5,12 +5,17 @@ import { cookies } from '@/lib/admin/utils/cookies';
 import { ROUTES } from '@/utils/paths';
 import { enqueueSnackbar } from 'notistack';
 
+// Mirrors what GET /auth/me actually returns (the mongoose user document).
+// This previously declared `id` and `emailVerified`, neither of which the API
+// sends, so any consumer reading them got undefined with no type error.
 interface User {
-  id: string;
+  _id: string;
   email: string;
-  emailVerified: boolean;
+  isEmailVerified: boolean;
   firstName?: string;
   lastName?: string;
+  phone?: string;
+  picture?: string;
 }
 
 interface AuthResponse {

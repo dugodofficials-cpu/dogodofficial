@@ -148,15 +148,28 @@ class OrderService {
     totalRefunds: number;
     totalPendingOrders: number;
   }> {
-    const totalOrders = await this.orders.countDocuments();
+    // Every other query in this service hides soft-deleted orders. These
+    // aggregates did not, so 95 deleted test orders were being reported on the
+    // admin dashboard as ~354M of revenue against 4,000 actually earned.
+    const visible = { status: { $ne: OrderStatus.DELETED } };
+    // Revenue and units sold only count orders that were really paid for:
+    // PENDING has not been paid yet, and cancelled/refunded money is not income.
+    const earned = {
+      status: {
+        $nin: [OrderStatus.DELETED, OrderStatus.CANCELLED, OrderStatus.REFUNDED, OrderStatus.PENDING],
+      },
+    };
+    const totalOrders = await this.orders.countDocuments(visible);
     const totalRevenue = await this.orders.aggregate([
+      { $match: earned },
       { $group: { _id: null, total: { $sum: '$total' } } }
     ]);
     const totalProductsSold = await this.orders.aggregate([
+      { $match: earned },
       { $unwind: '$items' },
       { $group: { _id: null, total: { $sum: '$items.quantity' } } }
     ]);
-    const totalCustomers = await this.orders.distinct('user');
+    const totalCustomers = await this.orders.distinct('user', visible);
     const totalRefunds = await this.orders.countDocuments({ status: OrderStatus.REFUNDED });
     const totalPendingOrders = await this.orders.countDocuments({ status: OrderStatus.PENDING });
     return {

@@ -1,22 +1,32 @@
-import { useState } from 'react';
-import {
-  Box,
-  TextField,
-  Button,
-  Typography,
-  Select,
-  MenuItem,
-  FormControl,
-} from '@mui/material';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Box, TextField, Button, Typography, Skeleton, Alert } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
+import { useAuth } from '@/hooks/admin/use-auth';
+import { useUpdateUser } from '@/hooks/admin/users';
 
 export function AdminProfileForm() {
+  const { user, isLoading } = useAuth();
+  const { mutate: updateUser, isPending } = useUpdateUser();
+  const admin = user?.data;
+
   const [formData, setFormData] = useState({
-    fullName: 'Mr. Ikenna',
-    email: 'admin@dugod.com',
-    role: 'Super Admin',
-    contactNumber: '+234 802 000 1111',
+    firstName: '',
+    lastName: '',
+    phone: '',
   });
+
+  // Populated from the signed-in admin rather than hardcoded sample values,
+  // which previously showed every admin the same fictional profile.
+  useEffect(() => {
+    if (!admin) return;
+    setFormData({
+      firstName: admin.firstName || '',
+      lastName: admin.lastName || '',
+      phone: admin.phone || '',
+    });
+  }, [admin]);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
@@ -26,52 +36,68 @@ export function AdminProfileForm() {
     }));
   };
 
+  const isDirty =
+    !!admin &&
+    (formData.firstName !== (admin.firstName || '') ||
+      formData.lastName !== (admin.lastName || '') ||
+      formData.phone !== (admin.phone || ''));
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    console.log('Form submitted:', formData);
+    if (!admin?._id || !isDirty) return;
+    updateUser({ id: admin._id, data: formData });
   };
+
+  if (isLoading) {
+    return (
+      <Box sx={{ maxWidth: 600 }}>
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} variant="rounded" height={56} sx={{ mb: 3 }} />
+        ))}
+      </Box>
+    );
+  }
+
+  if (!admin) {
+    return <Alert severity="error">Could not load your profile. Try signing in again.</Alert>;
+  }
 
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 600 }}>
       <Typography variant="subtitle1" gutterBottom>
-        Full Name
+        First Name
       </Typography>
       <TextField
         fullWidth
-        name="fullName"
-        value={formData.fullName}
+        name="firstName"
+        value={formData.firstName}
         onChange={handleChange}
         sx={{ mb: 3 }}
       />
 
       <Typography variant="subtitle1" gutterBottom>
-        Email
+        Last Name
       </Typography>
       <TextField
         fullWidth
-        name="email"
-        type="email"
-        value={formData.email}
+        name="lastName"
+        value={formData.lastName}
         onChange={handleChange}
         sx={{ mb: 3 }}
       />
 
       <Typography variant="subtitle1" gutterBottom>
-        Role (readonly)
+        Email (readonly)
       </Typography>
-      <FormControl fullWidth sx={{ mb: 3 }}>
-        <Select value={formData.role} disabled>
-          <MenuItem value="Super Admin">Super Admin</MenuItem>
-        </Select>
-      </FormControl>
+      <TextField fullWidth value={admin.email} disabled sx={{ mb: 3 }} />
 
       <Typography variant="subtitle1" gutterBottom>
         Contact Number
       </Typography>
       <TextField
         fullWidth
-        name="contactNumber"
-        value={formData.contactNumber}
+        name="phone"
+        value={formData.phone}
         onChange={handleChange}
         sx={{ mb: 3 }}
       />
@@ -80,15 +106,9 @@ export function AdminProfileForm() {
         type="submit"
         variant="contained"
         startIcon={<SaveIcon />}
-        fullWidth
-        sx={{
-          bgcolor: '#2FD65D',
-          '&:hover': {
-            bgcolor: '#2AC152',
-          },
-        }}
+        disabled={!isDirty || isPending}
       >
-        Save Admin Info
+        {isPending ? 'Saving...' : 'Save Changes'}
       </Button>
     </Box>
   );

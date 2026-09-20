@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Box, TextField, Typography, Button, Paper } from '@mui/material';
+import { Box, TextField, Typography, Button, Paper, Alert } from '@mui/material';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import SaveIcon from '@mui/icons-material/Save';
 import ImageIcon from '@mui/icons-material/Image';
@@ -33,16 +33,24 @@ export function HeroBannerForm() {
     }
   };
 
+  // There is no hero-banner API behind this screen, so there is nothing to
+  // submit to. The form stays visible as a layout reference, but the save is
+  // disabled rather than accepting input and dropping it on the floor.
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
   };
 
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 800 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 4 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <ImageIcon />
         <Typography variant="h6">Hero Banner Management</Typography>
       </Box>
+
+      <Alert severity="info" variant="outlined" sx={{ mb: 4 }}>
+        Saving is not available yet — there is no hero-banner API behind this form, so
+        changes made here are not stored anywhere.
+      </Alert>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <TextField
@@ -126,6 +134,7 @@ export function HeroBannerForm() {
           type="submit"
           variant="contained"
           size="large"
+          disabled
           startIcon={<SaveIcon />}
           sx={{
             bgcolor: '#2FD65D',
