@@ -18,7 +18,11 @@ export class PaystackWebhookHandler {
   private readonly cartService: CartService;
   private readonly userService: UsersService;
   constructor() {
-    this.webhookSecret = process.env.PAYSTACK_WEBHOOK_SECRET || process.env.PAYSTACK_SECRET_KEY || '';
+    // Paystack signs webhooks with the account secret key — it has no separate
+    // webhook secret. PAYSTACK_WEBHOOK_SECRET is therefore only a fallback: when
+    // it took precedence, a stale copy of it silently overrode a correct key and
+    // every real webhook failed signature verification.
+    this.webhookSecret = process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_WEBHOOK_SECRET || '';
     if (!this.webhookSecret) {
       throw new Error('PAYSTACK_SECRET_KEY environment variable is required');
     }
@@ -40,7 +44,11 @@ export class PaystackWebhookHandler {
       if (!signature) {
         throw new HttpException(400, 'Missing Paystack signature');
       }
-      const payload = JSON.stringify(req.body);
+      // Verify against the raw bytes Paystack signed. Re-serialising req.body
+      // only happens to match when the payload round-trips identically, which
+      // is not guaranteed for non-ASCII or differently formatted JSON.
+      const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+      const payload = rawBody ? rawBody.toString('utf8') : JSON.stringify(req.body);
       if (!this.verifySignature(payload, signature as string)) {
         throw new HttpException(401, 'Invalid signature');
       }

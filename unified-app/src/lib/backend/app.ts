@@ -91,7 +91,17 @@ class App {
     this.app.use(hpp());
     this.app.use(helmet());
     this.app.use(compression());
-    this.app.use(express.json({ limit: '2mb' }));
+    // Keep the raw bytes around: provider webhook signatures (Paystack) are
+    // computed over the exact payload sent, and JSON.stringify(req.body) is not
+    // guaranteed to reproduce it byte for byte.
+    this.app.use(
+      express.json({
+        limit: '2mb',
+        verify: (req, _res, buf) => {
+          (req as express.Request & { rawBody?: Buffer }).rawBody = buf;
+        },
+      })
+    );
     this.app.use(express.urlencoded({ extended: true, limit: '2mb' }));
     this.app.use(cookieParser());
     this.app.use(signPublicUrls);
