@@ -339,7 +339,7 @@ export default function MusicTable({ userId }: { userId: string }) {
     <ResponsiveTable
       columns={columns}
       data={tableData}
-      emptyMessage="No music purchases found"
+      emptyMessage="No digital purchases found"
       mobileLayout={renderMobileItem}
       rowsPerPage={10}
       showPagination={true}
